@@ -30,8 +30,8 @@ class Game extends Croquet.Model {
         this.blasts = new Set();
         this.subscribe(this.sessionId, "view-join", this.viewJoined);
         this.subscribe(this.sessionId, "view-exit", this.viewExited);
-        this.spawnAsteroid();
-        this.checkCollisions();
+        this.spawnAsteroidProcess();
+        this.checkCollisionsProcess();
     }
     viewJoined(viewId) {
         const ship = Ship.create({ viewId });
@@ -44,14 +44,14 @@ class Game extends Croquet.Model {
             ship.destroy();
         }
     }
-    spawnAsteroid() {
+    spawnAsteroidProcess() {
         if (this.asteroids.size < 5) {
             const asteroid = Asteroid.create({});
             this.asteroids.add(asteroid);
         }
-        this.future(5000).spawnAsteroid();
+        this.future(5000).spawnAsteroidProcess();
     }
-    checkCollisions() {
+    checkCollisionsProcess() {
         for (const asteroid of this.asteroids) {
             const minx = asteroid.x - asteroid.size;
             const maxx = asteroid.x + asteroid.size;
@@ -66,7 +66,7 @@ class Game extends Croquet.Model {
                 }
             }
         }
-        this.future(200).checkCollisions();
+        this.future(200).checkCollisionsProcess();
     }
 }
 Game.register("Game");
@@ -86,7 +86,7 @@ class Ship extends Croquet.Model {
         this.subscribe(viewId, "right-thruster", this.rightThruster);
         this.subscribe(viewId, "forward-thruster", this.forwardThruster);
         this.subscribe(viewId, "fire-blaster", this.fireBlaster);
-        this.move();
+        this.moveProcess();
     }
     leftThruster(active) {
         this.da = active ? -0.2 : 0;
@@ -105,7 +105,7 @@ class Ship extends Croquet.Model {
         const blast = Blast.create({ x, y, dx, dy, ship: this });
         this.wellKnownModel("modelRoot").blasts.add(blast);
     }
-    move() {
+    moveProcess() {
         if (this.thrust > 0) {
             this.dx += Math.cos(this.a) * this.thrust;
             this.dy += Math.sin(this.a) * this.thrust;
@@ -123,7 +123,7 @@ class Ship extends Croquet.Model {
         if (this.y > 1000) this.y -= 1000;
         if (this.a < 0) this.a += Math.PI * 2;
         if (this.a > Math.PI * 2) this.a -= Math.PI * 2;
-        this.future(50).move();
+        this.future(50).moveProcess();
     }
 }
 Ship.register("Ship");
@@ -147,9 +147,9 @@ class Asteroid extends Croquet.Model {
             this.a = Math.random() * Math.PI * 2;
             this.da = 0.1;
         }
-        this.move();
+        this.moveProcess();
     }
-    move() {
+    moveProcess() {
         this.x += this.dx;
         this.y += this.dy;
         this.a += this.da;
@@ -159,7 +159,7 @@ class Asteroid extends Croquet.Model {
         if (this.y > 1000) this.y -= 1000;
         if (this.a < 0) this.a += Math.PI * 2;
         if (this.a > Math.PI * 2) this.a -= Math.PI * 2;
-        this.future(100).move();
+        this.future(100).moveProcess();
     }
     hit(blast) {
         blast.ship.score++;
@@ -186,9 +186,9 @@ class Blast extends Croquet.Model {
         this.dx = dx;
         this.dy = dy;
         this.t = 0;
-        this.move();
+        this.moveProcess();
     }
-    move() {
+    moveProcess() {
         if (++this.t < 40) {
             this.x += this.dx;
             this.y += this.dy;
@@ -196,7 +196,7 @@ class Blast extends Croquet.Model {
             if (this.x > 1000) this.x -= 1000;
             if (this.y < 0) this.y += 1000;
             if (this.y > 1000) this.y -= 1000;
-            this.future(50).move();
+            this.future(50).moveProcess();
         } else {
             this.wellKnownModel("modelRoot").blasts.delete(this);
             this.destroy();
