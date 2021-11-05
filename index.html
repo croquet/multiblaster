@@ -286,7 +286,7 @@ class Display extends Croquet.View {
             this.context.translate(ship.x, ship.y);
             this.context.fillText(ship.score, 30, 15);
             this.context.rotate(ship.a);
-            this.drawShip(ship.thrust);
+            this.drawShip(ship.thrust, ship.viewId === this.viewId);
             this.context.restore();
         }
         for (const asteroid of this.model.asteroids) {
@@ -303,13 +303,16 @@ class Display extends Croquet.View {
             this.context.restore();
         }
     }
-    drawShip(thrust) {
+    drawShip(thrust, highlight) {
         this.context.beginPath();
         this.context.moveTo(+20,   0);
         this.context.lineTo(-20, +10);
         this.context.lineTo(-20, -10);
         this.context.closePath();
         this.context.stroke();
+        if (highlight) {
+            this.context.fill();
+        }
         if (thrust) {
             this.context.beginPath();
             this.context.moveTo(-20, +5);
