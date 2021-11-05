@@ -45,7 +45,7 @@ class Game extends Croquet.Model {
         }
     }
     spawnAsteroidProcess() {
-        if (this.asteroids.size < 5) {
+        if (this.asteroids.size === 0) {
             const asteroid = Asteroid.create({});
             this.asteroids.add(asteroid);
         }
@@ -164,15 +164,20 @@ class Asteroid extends Croquet.Model {
     hit(blast) {
         blast.ship.score++;
         this.size *= 0.7;
+        const asteroids = this.wellKnownModel("modelRoot").asteroids;
         if (this.size > 15) {
             this.da *= 1.5;
             const asteroid = Asteroid.create({
                 size: this.size, x: this.x, y: this.y, a: this.a,
                 dx: this.dy, dy: -this.dx, da: -this.da });
-            this.wellKnownModel("modelRoot").asteroids.add(asteroid);
+            asteroids.add(asteroid);
         } else {
-            this.wellKnownModel("modelRoot").asteroids.delete(this);
+            asteroids.delete(this);
             this.destroy();
+            if (asteroids.size < 5) {
+                const asteroid = Asteroid.create({});
+                asteroids.add(asteroid);
+            }
         }
     }
 }
