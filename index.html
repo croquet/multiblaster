@@ -27,7 +27,7 @@ class Game extends Croquet.Model {
     init() {
         this.ships = new Map();
         this.asteroids = new Set();
-        this.bullets = new Set();
+        this.blasts = new Set();
         this.subscribe(this.sessionId, "view-join", this.viewJoined);
         this.subscribe(this.sessionId, "view-exit", this.viewExited);
         this.spawnAsteroid();
@@ -57,11 +57,11 @@ class Game extends Croquet.Model {
             const maxx = asteroid.x + asteroid.size;
             const miny = asteroid.y - asteroid.size;
             const maxy = asteroid.y + asteroid.size;
-            for (const bullet of this.bullets) {
-                if (bullet.x > minx && bullet.x < maxx && bullet.y > miny && bullet.y < maxy) {
-                    asteroid.hit(bullet);
-                    bullet.destroy();
-                    this.bullets.delete(bullet);
+            for (const blast of this.blasts) {
+                if (blast.x > minx && blast.x < maxx && blast.y > miny && blast.y < maxy) {
+                    asteroid.hit(blast);
+                    blast.destroy();
+                    this.blasts.delete(blast);
                     break;
                 }
             }
@@ -82,28 +82,28 @@ class Ship extends Croquet.Model {
         this.dx = 0;
         this.dy = 0;
         this.da = 0;
-        this.subscribe(viewId, "left-key", this.leftKey);
-        this.subscribe(viewId, "right-key", this.rightKey);
-        this.subscribe(viewId, "up-key", this.upKey);
-        this.subscribe(viewId, "shoot-key", this.shootKey);
+        this.subscribe(viewId, "left-thruster", this.leftThruster);
+        this.subscribe(viewId, "right-thruster", this.rightThruster);
+        this.subscribe(viewId, "forward-thruster", this.forwardThruster);
+        this.subscribe(viewId, "fire-blaster", this.fireBlaster);
         this.move();
     }
-    leftKey(pressed) {
-        this.da = pressed ? -0.2 : 0;
+    leftThruster(active) {
+        this.da = active ? -0.2 : 0;
     }
-    rightKey(pressed) {
-        this.da = pressed ? 0.2 : 0;
+    rightThruster(active) {
+        this.da = active ? 0.2 : 0;
     }
-    upKey(pressed) {
-        this.thrust = pressed ? 0.5 : 0;
+    forwardThruster(active) {
+        this.thrust = active ? 0.5 : 0;
     }
-    shootKey() {
+    fireBlaster() {
         const dx = Math.cos(this.a) * 20;
         const dy = Math.sin(this.a) * 20;
         const x = this.x + dx;
         const y = this.y + dy;
-        const bullet = Bullet.create({ x, y, dx, dy, shooter: this });
-        this.wellKnownModel("modelRoot").bullets.add(bullet);
+        const blast = Blast.create({ x, y, dx, dy, ship: this });
+        this.wellKnownModel("modelRoot").blasts.add(blast);
     }
     move() {
         if (this.thrust > 0) {
@@ -161,8 +161,8 @@ class Asteroid extends Croquet.Model {
         if (this.a > Math.PI * 2) this.a -= Math.PI * 2;
         this.future(100).move();
     }
-    hit(bullet) {
-        bullet.shooter.score++;
+    hit(blast) {
+        blast.ship.score++;
         this.size *= 0.7;
         if (this.size > 15) {
             this.da *= 1.5;
@@ -178,9 +178,9 @@ class Asteroid extends Croquet.Model {
 }
 Asteroid.register("Asteroid");
 
-class Bullet extends Croquet.Model {
-    init({x, y, dx, dy, shooter}) {
-        this.shooter = shooter;
+class Blast extends Croquet.Model {
+    init({x, y, dx, dy, ship}) {
+        this.ship = ship;
         this.x = x;
         this.y = y;
         this.dx = dx;
@@ -198,12 +198,12 @@ class Bullet extends Croquet.Model {
             if (this.y > 1000) this.y -= 1000;
             this.future(50).move();
         } else {
-            this.wellKnownModel("modelRoot").bullets.delete(this);
+            this.wellKnownModel("modelRoot").blasts.delete(this);
             this.destroy();
         }
     }
 }
-Bullet.register("Bullet");
+Blast.register("Blast");
 
 
 class Display extends Croquet.View {
@@ -213,23 +213,23 @@ class Display extends Croquet.View {
         document.onkeydown = (e) => {
             if (e.repeat) return;
             switch (e.key) {
-                case "a": case "A": case "ArrowLeft":  this.publish(this.viewId, "left-key", true); break;
-                case "d": case "D": case "ArrowRight": this.publish(this.viewId, "right-key", true); break;
-                case "w": case "W": case "ArrowUp":    this.publish(this.viewId, "up-key", true); break;
-                case " ":                              this.publish(this.viewId, "shoot-key"); break;
+                case "a": case "A": case "ArrowLeft":  this.publish(this.viewId, "left-thruster", true); break;
+                case "d": case "D": case "ArrowRight": this.publish(this.viewId, "right-thruster", true); break;
+                case "w": case "W": case "ArrowUp":    this.publish(this.viewId, "forward-thruster", true); break;
+                case " ":                              this.publish(this.viewId, "fire-blaster"); break;
             }
         };
         document.onkeyup = (e) => {
             if (e.repeat) return;
             switch (e.key) {
-                case "a": case "A": case "ArrowLeft":  this.publish(this.viewId, "left-key", false); break;
-                case "d": case "D": case "ArrowRight": this.publish(this.viewId, "right-key", false); break;
-                case "w": case "W": case "ArrowUp":    this.publish(this.viewId, "up-key", false); break;
+                case "a": case "A": case "ArrowLeft":  this.publish(this.viewId, "left-thruster", false); break;
+                case "d": case "D": case "ArrowRight": this.publish(this.viewId, "right-thruster", false); break;
+                case "w": case "W": case "ArrowUp":    this.publish(this.viewId, "forward-thruster", false); break;
             }
         };
 
         const canvas = document.getElementById("canvas");
-        let mx = 0, my = 0, mdown = false, right = false, left = false, up = false;
+        let mx = 0, my = 0, mdown = false, right = false, left = false, forward = false;
         canvas.onmousedown = (e) => {
             mdown = true;
             mx = e.clientX;
@@ -237,26 +237,26 @@ class Display extends Croquet.View {
         };
         canvas.onmouseup = (e) => {
             mdown = false;
-            if (!right && !left && !up) {
-                this.publish(this.viewId, "shoot-key");
+            if (!right && !left && !forward) {
+                this.publish(this.viewId, "fire-blaster");
             }
-            if (right) { this.publish(this.viewId, "right-key", false); right = false; }
-            if (left) { this.publish(this.viewId, "left-key", false); left = false;  }
-            if (up) { this.publish(this.viewId, "up-key", false); up = false; }
+            if (right) { this.publish(this.viewId, "right-thruster", false); right = false; }
+            if (left) { this.publish(this.viewId, "left-thruster", false); left = false;  }
+            if (forward) { this.publish(this.viewId, "forward-thruster", false); forward = false; }
         };
         canvas.onmousemove = (e) => {
             if (mdown) {
                 const dx = e.clientX - mx;
                 const dy = e.clientY - my;
                 if (dx > 50) {
-                    if (!right) { this.publish(this.viewId, "right-key", true); right = true; }
-                } else if (right) { this.publish(this.viewId, "right-key", false); right = false; }
+                    if (!right) { this.publish(this.viewId, "right-thruster", true); right = true; }
+                } else if (right) { this.publish(this.viewId, "right-thruster", false); right = false; }
                 if (dx < -50) {
-                    if (!left) { this.publish(this.viewId, "left-key", true); left = true; }
-                } else if (left) { this.publish(this.viewId, "left-key", false); left = false; }
+                    if (!left) { this.publish(this.viewId, "left-thruster", true); left = true; }
+                } else if (left) { this.publish(this.viewId, "left-thruster", false); left = false; }
                 if (dy < -50) {
-                    if (!up) { this.publish(this.viewId, "up-key", true); up = true; }
-                } else if (up) { this.publish(this.viewId, "up-key", false); up = false; }
+                    if (!forward) { this.publish(this.viewId, "forward-thruster", true); forward = true; }
+                } else if (forward) { this.publish(this.viewId, "forward-thruster", false); forward = false; }
             }
         }
         document.body.ontouchstart = (e) => {
@@ -296,10 +296,10 @@ class Display extends Croquet.View {
             this.drawAsteroid(asteroid.size);
             this.context.restore();
         }
-        for (const bullet of this.model.bullets) {
+        for (const blast of this.model.blasts) {
             this.context.save();
-            this.context.translate(bullet.x, bullet.y);
-            this.drawBullet();
+            this.context.translate(blast.x, blast.y);
+            this.drawBlast();
             this.context.restore();
         }
     }
@@ -327,7 +327,7 @@ class Display extends Croquet.View {
         this.context.closePath();
         this.context.stroke();
     }
-    drawBullet() {
+    drawBlast() {
         this.context.beginPath();
         this.context.moveTo(+3,  0);
         this.context.lineTo( 0, +3);
