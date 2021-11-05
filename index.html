@@ -1,0 +1,354 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Croquet Multiblaster</title>
+        <style>
+            html, body {
+                margin: 0;
+                height: 100%;
+                overflow: hidden;
+                touch-action: none;
+            }
+            #canvas {
+                background: #000000;
+                object-fit: contain;
+                max-width: 100%;
+                max-height: 100%;
+            }
+        </style>
+        <script src="https://unpkg.com/@croquet/croquet@1.0"></script>
+    </head>
+    <body>
+        <canvas id="canvas" width="1000" height="1000"></canvas>
+        <script>
+
+class Game extends Croquet.Model {
+    init() {
+        this.ships = new Map();
+        this.asteroids = new Set();
+        this.bullets = new Set();
+        this.subscribe(this.sessionId, "view-join", this.viewJoined);
+        this.subscribe(this.sessionId, "view-exit", this.viewExited);
+        this.spawnAsteroid();
+        this.checkCollisions();
+    }
+    viewJoined(viewId) {
+        const ship = Ship.create({ viewId });
+        this.ships.set(viewId, ship);
+    }
+    viewExited(viewId) {
+        const ship = this.ships.get(viewId);
+        if (ship) {
+            this.ships.delete(viewId);
+            ship.destroy();
+        }
+    }
+    spawnAsteroid() {
+        if (this.asteroids.size < 5) {
+            const asteroid = Asteroid.create({});
+            this.asteroids.add(asteroid);
+        }
+        this.future(5000).spawnAsteroid();
+    }
+    checkCollisions() {
+        for (const asteroid of this.asteroids) {
+            const minx = asteroid.x - asteroid.size;
+            const maxx = asteroid.x + asteroid.size;
+            const miny = asteroid.y - asteroid.size;
+            const maxy = asteroid.y + asteroid.size;
+            for (const bullet of this.bullets) {
+                if (bullet.x > minx && bullet.x < maxx && bullet.y > miny && bullet.y < maxy) {
+                    asteroid.hit(bullet);
+                    bullet.destroy();
+                    this.bullets.delete(bullet);
+                    break;
+                }
+            }
+        }
+        this.future(200).checkCollisions();
+    }
+}
+Game.register("Game");
+
+class Ship extends Croquet.Model {
+    init({ viewId }) {
+        this.viewId = viewId;
+        this.score = 0;
+        this.x = 500;
+        this.y = 500;
+        this.a = 0;
+        this.thrust = 0;
+        this.dx = 0;
+        this.dy = 0;
+        this.da = 0;
+        this.subscribe(viewId, "left-key", this.leftKey);
+        this.subscribe(viewId, "right-key", this.rightKey);
+        this.subscribe(viewId, "up-key", this.upKey);
+        this.subscribe(viewId, "shoot-key", this.shootKey);
+        this.move();
+    }
+    leftKey(pressed) {
+        this.da = pressed ? -0.2 : 0;
+    }
+    rightKey(pressed) {
+        this.da = pressed ? 0.2 : 0;
+    }
+    upKey(pressed) {
+        this.thrust = pressed ? 0.5 : 0;
+    }
+    shootKey() {
+        const dx = Math.cos(this.a) * 20;
+        const dy = Math.sin(this.a) * 20;
+        const x = this.x + dx;
+        const y = this.y + dy;
+        const bullet = Bullet.create({ x, y, dx, dy, shooter: this });
+        this.wellKnownModel("modelRoot").bullets.add(bullet);
+    }
+    move() {
+        if (this.thrust > 0) {
+            this.dx += Math.cos(this.a) * this.thrust;
+            this.dy += Math.sin(this.a) * this.thrust;
+            if (this.dx > 10) this.dx = 10;
+            if (this.dx < -10) this.dx = -10;
+            if (this.dy > 10) this.dy = 10;
+            if (this.dy < -10) this.dy = -10;
+        }
+        this.x += this.dx;
+        this.y += this.dy;
+        this.a += this.da;
+        if (this.x < 0) this.x += 1000;
+        if (this.x > 1000) this.x -= 1000;
+        if (this.y < 0) this.y += 1000;
+        if (this.y > 1000) this.y -= 1000;
+        if (this.a < 0) this.a += Math.PI * 2;
+        if (this.a > Math.PI * 2) this.a -= Math.PI * 2;
+        this.future(50).move();
+    }
+}
+Ship.register("Ship");
+
+class Asteroid extends Croquet.Model {
+    init({ size, x, y, a, dx, dy, da }) {
+        if (size) {
+            this.size = size;
+            this.x = x;
+            this.y = y;
+            this.a = a;
+            this.dx = dx;
+            this.dy = dy;
+            this.da = da;
+        } else {
+            this.size = 40;
+            do { this.x = Math.random() * 1000; } while (Math.abs(this.x - 500) < 100);
+            do { this.y = Math.random() * 1000; } while (Math.abs(this.y - 500) < 100);
+            do { this.dx = Math.random() * 10 - 5; } while (Math.abs(this.dx) < 3);
+            do { this.dy = Math.random() * 10 - 5; } while (Math.abs(this.dy) < 3);
+            this.a = Math.random() * Math.PI * 2;
+            this.da = 0.1;
+        }
+        this.move();
+    }
+    move() {
+        this.x += this.dx;
+        this.y += this.dy;
+        this.a += this.da;
+        if (this.x < 0) this.x += 1000;
+        if (this.x > 1000) this.x -= 1000;
+        if (this.y < 0) this.y += 1000;
+        if (this.y > 1000) this.y -= 1000;
+        if (this.a < 0) this.a += Math.PI * 2;
+        if (this.a > Math.PI * 2) this.a -= Math.PI * 2;
+        this.future(100).move();
+    }
+    hit(bullet) {
+        bullet.shooter.score++;
+        this.size *= 0.7;
+        if (this.size > 15) {
+            this.da *= 1.5;
+            const asteroid = Asteroid.create({
+                size: this.size, x: this.x, y: this.y, a: this.a,
+                dx: this.dy, dy: -this.dx, da: -this.da });
+            this.wellKnownModel("modelRoot").asteroids.add(asteroid);
+        } else {
+            this.wellKnownModel("modelRoot").asteroids.delete(this);
+            this.destroy();
+        }
+    }
+}
+Asteroid.register("Asteroid");
+
+class Bullet extends Croquet.Model {
+    init({x, y, dx, dy, shooter}) {
+        this.shooter = shooter;
+        this.x = x;
+        this.y = y;
+        this.dx = dx;
+        this.dy = dy;
+        this.t = 0;
+        this.move();
+    }
+    move() {
+        if (++this.t < 40) {
+            this.x += this.dx;
+            this.y += this.dy;
+            if (this.x < 0) this.x += 1000;
+            if (this.x > 1000) this.x -= 1000;
+            if (this.y < 0) this.y += 1000;
+            if (this.y > 1000) this.y -= 1000;
+            this.future(50).move();
+        } else {
+            this.wellKnownModel("modelRoot").bullets.delete(this);
+            this.destroy();
+        }
+    }
+}
+Bullet.register("Bullet");
+
+
+class Display extends Croquet.View {
+    constructor(model) {
+        super(model);
+        this.model = model;
+        document.onkeydown = (e) => {
+            if (e.repeat) return;
+            switch (e.key) {
+                case "a": case "A": case "ArrowLeft":  this.publish(this.viewId, "left-key", true); break;
+                case "d": case "D": case "ArrowRight": this.publish(this.viewId, "right-key", true); break;
+                case "w": case "W": case "ArrowUp":    this.publish(this.viewId, "up-key", true); break;
+                case " ":                              this.publish(this.viewId, "shoot-key"); break;
+            }
+        };
+        document.onkeyup = (e) => {
+            if (e.repeat) return;
+            switch (e.key) {
+                case "a": case "A": case "ArrowLeft":  this.publish(this.viewId, "left-key", false); break;
+                case "d": case "D": case "ArrowRight": this.publish(this.viewId, "right-key", false); break;
+                case "w": case "W": case "ArrowUp":    this.publish(this.viewId, "up-key", false); break;
+            }
+        };
+
+        const canvas = document.getElementById("canvas");
+        let mx = 0, my = 0, mdown = false, right = false, left = false, up = false;
+        canvas.onmousedown = (e) => {
+            mdown = true;
+            mx = e.clientX;
+            my = e.clientY;
+        };
+        canvas.onmouseup = (e) => {
+            mdown = false;
+            if (!right && !left && !up) {
+                this.publish(this.viewId, "shoot-key");
+            }
+            if (right) { this.publish(this.viewId, "right-key", false); right = false; }
+            if (left) { this.publish(this.viewId, "left-key", false); left = false;  }
+            if (up) { this.publish(this.viewId, "up-key", false); up = false; }
+        };
+        canvas.onmousemove = (e) => {
+            if (mdown) {
+                const dx = e.clientX - mx;
+                const dy = e.clientY - my;
+                if (dx > 50) {
+                    if (!right) { this.publish(this.viewId, "right-key", true); right = true; }
+                } else if (right) { this.publish(this.viewId, "right-key", false); right = false; }
+                if (dx < -50) {
+                    if (!left) { this.publish(this.viewId, "left-key", true); left = true; }
+                } else if (left) { this.publish(this.viewId, "left-key", false); left = false; }
+                if (dy < -50) {
+                    if (!up) { this.publish(this.viewId, "up-key", true); up = true; }
+                } else if (up) { this.publish(this.viewId, "up-key", false); up = false; }
+            }
+        }
+        document.body.ontouchstart = (e) => {
+            e.preventDefault();
+            if (!mdown) canvas.onmousedown(e.touches[0]);
+        }
+        document.body.ontouchmove = (e) => {
+            e.preventDefault();
+            if (!mdown) canvas.onmousedown(e.touches[0]);
+            else canvas.onmousemove(e.touches[0]);
+        }
+        document.body.ontouchend = (e) => {
+            e.preventDefault();
+            if (mdown) canvas.onmouseup(e.touches[0]);
+        }
+
+        this.context = canvas.getContext("2d");
+    }
+    update() {
+        this.context.clearRect(0, 0, 1000, 1000);
+        this.context.font = '40px sans-serif';
+        this.context.fillStyle = "gray";
+        this.context.lineWidth = 3;
+        this.context.strokeStyle = "white";
+        for (const ship of this.model.ships.values()) {
+            this.context.save();
+            this.context.translate(ship.x, ship.y);
+            this.context.fillText(ship.score, 30, 15);
+            this.context.rotate(ship.a);
+            this.drawShip(ship.thrust);
+            this.context.restore();
+        }
+        for (const asteroid of this.model.asteroids) {
+            this.context.save();
+            this.context.translate(asteroid.x, asteroid.y);
+            this.context.rotate(asteroid.a);
+            this.drawAsteroid(asteroid.size);
+            this.context.restore();
+        }
+        for (const bullet of this.model.bullets) {
+            this.context.save();
+            this.context.translate(bullet.x, bullet.y);
+            this.drawBullet();
+            this.context.restore();
+        }
+    }
+    drawShip(thrust) {
+        this.context.beginPath();
+        this.context.moveTo(+20,   0);
+        this.context.lineTo(-20, +10);
+        this.context.lineTo(-20, -10);
+        this.context.closePath();
+        this.context.stroke();
+        if (thrust) {
+            this.context.beginPath();
+            this.context.moveTo(-20, +5);
+            this.context.lineTo(-30,  0);
+            this.context.lineTo(-20, -5);
+            this.context.stroke();
+        }
+    }
+    drawAsteroid(size) {
+        this.context.beginPath();
+        this.context.moveTo(+size,  0);
+        this.context.lineTo( 0, +size);
+        this.context.lineTo(-size,  0);
+        this.context.lineTo( 0, -size);
+        this.context.closePath();
+        this.context.stroke();
+    }
+    drawBullet() {
+        this.context.beginPath();
+        this.context.moveTo(+3,  0);
+        this.context.lineTo( 0, +3);
+        this.context.lineTo(-3,  0);
+        this.context.lineTo( 0, -3);
+        this.context.closePath();
+        this.context.stroke();
+    }
+}
+
+Croquet.App.makeWidgetDock(); // shows QR code
+
+Croquet.Session.join({
+    apiKey: '1_i65fcn11n7lhrb5n890hs3dhj11hfzfej57pvlrx', // get your own from croquet.io/keys
+    appId: 'io.croquet.multiblaster',
+    name: Croquet.App.autoSession(),
+    password: Croquet.App.autoPassword(),
+    model: Game,
+    view: Display,
+});
+
+        </script>
+    </body>
+</html>
