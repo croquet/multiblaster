@@ -271,6 +271,8 @@ class Display extends Croquet.View {
             if (mdown) canvas.onmouseup(e.touches[0]);
         }
 
+        this.smoothing = new WeakMap();
+
         this.context = canvas.getContext("2d");
     }
     update() {
@@ -280,26 +282,46 @@ class Display extends Croquet.View {
         this.context.lineWidth = 3;
         this.context.strokeStyle = "white";
         for (const ship of this.model.ships.values()) {
+            const { x, y, a } = this.smoothPosAndAngle(ship);
             this.context.save();
-            this.context.translate(ship.x, ship.y);
+            this.context.translate(x, y);
             this.context.fillText(ship.score, 30, 15);
-            this.context.rotate(ship.a);
+            this.context.rotate(a);
             this.drawShip(ship.thrust, ship.viewId === this.viewId);
             this.context.restore();
         }
         for (const asteroid of this.model.asteroids) {
+            const { x, y, a } = this.smoothPosAndAngle(asteroid);
             this.context.save();
-            this.context.translate(asteroid.x, asteroid.y);
-            this.context.rotate(asteroid.a);
+            this.context.translate(x, y);
+            this.context.rotate(a);
             this.drawAsteroid(asteroid.size);
             this.context.restore();
         }
         for (const blast of this.model.blasts) {
+            const { x, y } = this.smoothPos(blast);
             this.context.save();
-            this.context.translate(blast.x, blast.y);
+            this.context.translate(x, y);
             this.drawBlast();
             this.context.restore();
         }
+    }
+    smoothPos(obj) {
+        if (!this.smoothing.has(obj)) {
+            this.smoothing.set(obj, { x: obj.x, y: obj.y, a: obj.a });
+        }
+        const smoothed = this.smoothing.get(obj);
+        const dx = obj.x - smoothed.x;
+        const dy = obj.y - smoothed.y;
+        if (Math.abs(dx) < 50) smoothed.x += dx * 0.3; else smoothed.x = obj.x;
+        if (Math.abs(dy) < 50) smoothed.y += dy * 0.3; else smoothed.y = obj.y;
+        return smoothed;
+    }
+    smoothPosAndAngle(obj) {
+        const smoothed = this.smoothPos(obj);
+        const da = obj.a - smoothed.a;
+        if (Math.abs(da) < 1) smoothed.a += da * 0.3; else smoothed.a = obj.a;
+        return smoothed;
     }
     drawShip(thrust, highlight) {
         this.context.beginPath();
