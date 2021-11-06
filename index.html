@@ -81,10 +81,11 @@ class Ship extends Croquet.Model {
         this.x = 500;
         this.y = 500;
         this.a = 0;
-        this.thrust = 0;
+        this.forward = false;
+        this.left = false;
+        this.right = false;
         this.dx = 0;
         this.dy = 0;
-        this.da = 0;
         this.subscribe(viewId, "left-thruster", this.leftThruster);
         this.subscribe(viewId, "right-thruster", this.rightThruster);
         this.subscribe(viewId, "forward-thruster", this.forwardThruster);
@@ -92,15 +93,15 @@ class Ship extends Croquet.Model {
     }
 
     leftThruster(active) {
-        this.da = active ? -0.2 : 0;
+        this.left = active;
     }
 
     rightThruster(active) {
-        this.da = active ? 0.2 : 0;
+        this.right = active;
     }
 
     forwardThruster(active) {
-        this.thrust = active ? 0.5 : 0;
+        this.forward = active;
     }
 
     fireBlaster() {
@@ -113,17 +114,18 @@ class Ship extends Croquet.Model {
     }
 
     move() {
-        if (this.thrust > 0) {
-            this.dx += Math.cos(this.a) * this.thrust;
-            this.dy += Math.sin(this.a) * this.thrust;
+        if (this.forward) {
+            this.dx += Math.cos(this.a) * 0.5;
+            this.dy += Math.sin(this.a) * 0.5;
             if (this.dx > 10) this.dx = 10;
             if (this.dx < -10) this.dx = -10;
             if (this.dy > 10) this.dy = 10;
             if (this.dy < -10) this.dy = -10;
         }
+        if (this.left) this.a -= 0.2;
+        if (this.right) this.a += 0.2;
         this.x += this.dx;
         this.y += this.dy;
-        this.a += this.da;
         if (this.x < 0) this.x += 1000;
         if (this.x > 1000) this.x -= 1000;
         if (this.y < 0) this.y += 1000;
