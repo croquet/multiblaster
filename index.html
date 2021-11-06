@@ -137,6 +137,7 @@ Ship.register("Ship");
 class Asteroid extends Croquet.Model {
     init({ size, x, y, a, dx, dy, da }) {
         if (size) {
+            // init second asteroid after spliting
             this.size = size;
             this.x = x;
             this.y = y;
@@ -145,13 +146,16 @@ class Asteroid extends Croquet.Model {
             this.dy = dy;
             this.da = da;
         } else {
+            // init new large asteroid
             this.size = 40;
-            do { this.x = Math.random() * 1000; } while (Math.abs(this.x - 500) < 100);
-            do { this.y = Math.random() * 1000; } while (Math.abs(this.y - 500) < 100);
-            do { this.dx = Math.random() * 10 - 5; } while (Math.abs(this.dx) < 3);
-            do { this.dy = Math.random() * 10 - 5; } while (Math.abs(this.dy) < 3);
+            this.x = Math.random() * 400 - 200;
+            this.y = Math.random() * 400 - 200;
             this.a = Math.random() * Math.PI * 2;
-            this.da = 0.05;
+            const speed = Math.random() * 4 + 1;
+            this.dx = Math.cos(this.a) * speed;
+            this.dy = Math.sin(this.a) * speed;
+            this.da = (0.02 + Math.random() * 0.03) * (Math.random() < 0.5 ? 1 : -1);
+            this.move()
         }
     }
 
