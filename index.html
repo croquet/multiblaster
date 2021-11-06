@@ -157,13 +157,13 @@ class Asteroid extends Croquet.Model {
             this.dx = Math.cos(this.a) * speed;
             this.dy = Math.sin(this.a) * speed;
             this.da = (0.02 + Math.random() * 0.03) * (Math.random() < 0.5 ? 1 : -1);
-            this.move()
+            this.move();
         }
     }
 
-    move() {
-        this.x += this.dx;
-        this.y += this.dy;
+    move(factor=1) {
+        this.x += this.dx * factor;
+        this.y += this.dy * factor;
         this.a += this.da;
         if (this.x < 0) this.x += 1000;
         if (this.x > 1000) this.x -= 1000;
@@ -175,15 +175,20 @@ class Asteroid extends Croquet.Model {
 
     hit(blast) {
         blast.ship.score++;
-        this.size *= 0.7;
         const asteroids = this.wellKnownModel("modelRoot").asteroids;
         if (this.size > 15) {
+            // split into two smaller asteroids
+            this.size *= 0.7;
             this.da *= 1.5;
             const asteroid = Asteroid.create({
                 size: this.size, x: this.x, y: this.y, a: this.a,
                 dx: this.dy, dy: -this.dx, da: -this.da });
             asteroids.add(asteroid);
+            // move apart
+            this.move(this.size / 2);
+            asteroid.move(this.size / 2);
         } else {
+            // destroy
             asteroids.delete(this);
             this.destroy();
             if (asteroids.size < 5) {
