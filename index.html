@@ -68,7 +68,7 @@ class Game extends Croquet.Model {
                 }
             }
             for (const ship of this.ships.values()) {
-                if (ship.x + 10 > minx && ship.x - 10 < maxx && ship.y + 10 > miny && ship.y - 10 < maxy) {
+                if (!ship.hit && ship.x + 10 > minx && ship.x - 10 < maxx && ship.y + 10 > miny && ship.y - 10 < maxy) {
                     ship.hitBy(asteroid);
                     break;
                 }
