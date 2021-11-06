@@ -55,9 +55,7 @@ class Game extends Croquet.Model {
             const maxy = asteroid.y + asteroid.size;
             for (const blast of this.blasts) {
                 if (blast.x > minx && blast.x < maxx && blast.y > miny && blast.y < maxy) {
-                    asteroid.hit(blast);
-                    blast.destroy();
-                    this.blasts.delete(blast);
+                    asteroid.hitBy(blast);
                     break;
                 }
             }
@@ -109,8 +107,7 @@ class Ship extends Croquet.Model {
         const dy = Math.sin(this.a) * 20;
         const x = this.x + dx;
         const y = this.y + dy;
-        const blast = Blast.create({ x, y, dx, dy, ship: this });
-        this.wellKnownModel("modelRoot").blasts.add(blast);
+        Blast.create({ x, y, dx, dy, ship: this });
     }
 
     move() {
@@ -159,6 +156,7 @@ class Asteroid extends Croquet.Model {
             this.da = (0.02 + Math.random() * 0.03) * (Math.random() < 0.5 ? 1 : -1);
             this.move();
         }
+        this.wellKnownModel("modelRoot").asteroids.add(this);
     }
 
     move(factor=1) {
@@ -173,29 +171,27 @@ class Asteroid extends Croquet.Model {
         if (this.a > Math.PI * 2) this.a -= Math.PI * 2;
     }
 
-    hit(blast) {
+    hitBy(blast) {
         blast.ship.score++;
-        const asteroids = this.wellKnownModel("modelRoot").asteroids;
-        if (this.size > 15) {
+        blast.destroy();
+        if (this.size > 20) {
             // split into two smaller asteroids
             this.size *= 0.7;
             this.da *= 1.5;
-            const asteroid = Asteroid.create({
-                size: this.size, x: this.x, y: this.y, a: this.a,
-                dx: this.dy, dy: -this.dx, da: -this.da });
-            asteroids.add(asteroid);
+            const asteroid = Asteroid.create({ size: this.size, x: this.x, y: this.y, a: this.a, dx: this.dy, dy: -this.dx, da: -this.da });
             // move apart
             this.move(this.size / 2);
             asteroid.move(this.size / 2);
         } else {
-            // destroy
-            asteroids.delete(this);
             this.destroy();
-            if (asteroids.size < 5) {
-                const asteroid = Asteroid.create({});
-                asteroids.add(asteroid);
-            }
         }
+    }
+
+    destroy() {
+        const asteroids = this.wellKnownModel("modelRoot").asteroids;
+        asteroids.delete(this);
+        super.destroy();
+        if (asteroids.size < 5) Asteroid.create({});
     }
 }
 Asteroid.register("Asteroid");
@@ -208,6 +204,7 @@ class Blast extends Croquet.Model {
         this.dx = dx;
         this.dy = dy;
         this.t = 0;
+        this.wellKnownModel("modelRoot").blasts.add(this);
     }
 
     move() {
@@ -219,12 +216,19 @@ class Blast extends Croquet.Model {
             if (this.y < 0) this.y += 1000;
             if (this.y > 1000) this.y -= 1000;
         } else {
-            this.wellKnownModel("modelRoot").blasts.delete(this);
             this.destroy();
         }
     }
+
+    destroy() {
+        this.wellKnownModel("modelRoot").blasts.delete(this);
+        super.destroy();
+    }
 }
 Blast.register("Blast");
+
+
+///////////////////////////////////////////////////////////////////////////////
 
 
 class Display extends Croquet.View {
