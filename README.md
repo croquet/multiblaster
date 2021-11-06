@@ -8,6 +8,8 @@ All clients are kept in sync automatically by [Croquet](https://croquet.io/)'s s
 https://croquet.io/multiblaster
 
 * open this URL to create a new session
+* use arrow keys to move, and space bar to shoot
+* on phones, drag up/left/right to move, and tap to shoot
 * to join the same session, scan the QR code in the lower left
 * or share the session URL
 
