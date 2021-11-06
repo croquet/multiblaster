@@ -353,7 +353,7 @@ class Display extends Croquet.View {
             if (!ship.hit) this.context.fillText(ship.score, 30, 15);
             this.context.rotate(a);
             if (ship.hit) this.drawDebris(ship.hit);
-            else this.drawShip(ship.thrust, ship.viewId === this.viewId);
+            else this.drawShip(ship.forward, ship.viewId === this.viewId);
             this.context.restore();
         }
         for (const asteroid of this.model.asteroids) {
