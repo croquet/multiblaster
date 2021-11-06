@@ -97,18 +97,22 @@ class Ship extends Croquet.Model {
     }
 
     leftThruster(active) {
+        if (this.hit) return;
         this.left = active;
     }
 
     rightThruster(active) {
+        if (this.hit) return;
         this.right = active;
     }
 
     forwardThruster(active) {
+        if (this.hit) return;
         this.forward = active;
     }
 
     fireBlaster() {
+        if (this.hit) return;
         const dx = Math.cos(this.a) * 20;
         const dy = Math.sin(this.a) * 20;
         const x = this.x + dx;
@@ -150,6 +154,9 @@ class Ship extends Croquet.Model {
         asteroid.destroy();
         this.hit = 1;
         this.score = 0;
+        this.forward = false;
+        this.left = false;
+        this.right = false;
     }
 }
 Ship.register("Ship");
