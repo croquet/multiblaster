@@ -16,6 +16,14 @@
                 max-width: 100%;
                 max-height: 100%;
             }
+            #codelink {
+                position: fixed; bottom: 10px; right: 10px; padding: .5em; border-radius: 30px;
+                opacity: 50%; background: lightgray; box-shadow: 1px 1px 5px black;
+                text-decoration: none; font-family: monospace; font-size: 1.5em;
+            }
+            #codelink:hover {
+                opacity: 100%;
+            }
         </style>
         <script src="https://unpkg.com/@croquet/croquet@1.0"></script>
     </head>
@@ -444,5 +452,7 @@ Croquet.Session.join({
 });
 
         </script>
+        <a id="codelink" href="https://github.com/croquet/multiblaster/blob/master/index.html"
+            title="View source code on GitHub" target="_blank">{}</a>
     </body>
 </html>
