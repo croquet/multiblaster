@@ -200,7 +200,7 @@ class Blast extends Croquet.Model {
     }
 
     move() {
-        if (++this.t < 40) {
+        if (++this.t < 20) {
             this.x += this.dx;
             this.y += this.dy;
             if (this.x < 0) this.x += 1000;
