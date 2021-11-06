@@ -371,10 +371,7 @@ class Display extends Croquet.View {
 
     drawBlast() {
         this.context.beginPath();
-        this.context.moveTo(+3,  0);
-        this.context.lineTo( 0, +3);
-        this.context.lineTo(-3,  0);
-        this.context.lineTo( 0, -3);
+        this.context.ellipse(0, 0, 3, 3, 0, 0, 2 * Math.PI);
         this.context.closePath();
         this.context.stroke();
     }
