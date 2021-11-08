@@ -202,7 +202,7 @@ class Asteroid extends Croquet.Model {
     }
 
     hitBy(blast) {
-        blast.ship.score++;
+        if (!blast.ship.hit) blast.ship.score++;
         if (this.size > 20) {
             // split into two smaller asteroids
             this.size *= 0.7;
