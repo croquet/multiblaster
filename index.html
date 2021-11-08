@@ -49,10 +49,8 @@ class Game extends Croquet.Model {
 
     viewExited(viewId) {
         const ship = this.ships.get(viewId);
-        if (ship) {
-            this.ships.delete(viewId);
-            ship.destroy();
-        }
+        this.ships.delete(viewId);
+        ship.destroy();
     }
 
     checkCollisions() {
