@@ -69,6 +69,7 @@ class Game extends Croquet.Model {
             }
             for (const ship of this.ships.values()) {
                 if (!ship.hit && ship.x + 10 > minx && ship.x - 10 < maxx && ship.y + 10 > miny && ship.y - 10 < maxy) {
+                    if (!ship.score && Math.abs(ship.x-500) + Math.abs(ship.y-500) < 40) continue;
                     ship.hitBy(asteroid);
                     break;
                 }
@@ -93,11 +94,12 @@ class Ship extends Croquet.Model {
         this.x = 500;
         this.y = 500;
         this.a = 0;
+        this.dx = 0;
+        this.dy = 0;
         this.forward = false;
         this.left = false;
         this.right = false;
-        this.dx = 0;
-        this.dy = 0;
+        this.hit = 0;
         this.subscribe(viewId, "left-thruster", this.leftThruster);
         this.subscribe(viewId, "right-thruster", this.rightThruster);
         this.subscribe(viewId, "forward-thruster", this.forwardThruster);
@@ -129,7 +131,7 @@ class Ship extends Croquet.Model {
     }
 
     move() {
-        if (this.hit > 0) {
+        if (this.hit) {
             if (++this.hit > 60) {
                 this.x = 500;
                 this.y = 500;
@@ -352,7 +354,7 @@ class Display extends Croquet.View {
             const { x, y, a } = this.smoothPosAndAngle(ship);
             this.context.save();
             this.context.translate(x, y);
-            if (!ship.hit) this.context.fillText(ship.score, 30, 15);
+            if (ship.score) this.context.fillText(ship.score, 30, 15);
             this.context.rotate(a);
             if (ship.hit) this.drawDebris(ship.hit);
             else this.drawShip(ship.forward, ship.viewId === this.viewId);
