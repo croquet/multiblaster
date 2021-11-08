@@ -90,20 +90,24 @@ Game.register("Game");
 class Ship extends Croquet.Model {
     init({ viewId }) {
         this.viewId = viewId;
-        this.score = 0;
-        this.x = 500;
-        this.y = 500;
-        this.a = 0;
-        this.dx = 0;
-        this.dy = 0;
-        this.forward = false;
-        this.left = false;
-        this.right = false;
-        this.hit = 0;
+        this.reset();
         this.subscribe(viewId, "left-thruster", this.leftThruster);
         this.subscribe(viewId, "right-thruster", this.rightThruster);
         this.subscribe(viewId, "forward-thruster", this.forwardThruster);
         this.subscribe(viewId, "fire-blaster", this.fireBlaster);
+    }
+
+    reset() {
+        this.x = 500;
+        this.y = 500;
+        this.a = -Math.PI / 2;
+        this.dx = 0;
+        this.dy = 0;
+        this.left = false;
+        this.right = false;
+        this.forward = false;
+        this.score = 0;
+        this.hit = 0;
     }
 
     leftThruster(active) {
@@ -132,13 +136,7 @@ class Ship extends Croquet.Model {
 
     move() {
         if (this.hit) {
-            if (++this.hit > 60) {
-                this.x = 500;
-                this.y = 500;
-                this.dx = 0;
-                this.dy = 0;
-                this.hit = 0;
-            }
+            if (++this.hit > 60) this.reset();
         } else {
             if (this.forward) {
                 this.dx += Math.cos(this.a) * 0.5;
@@ -163,10 +161,6 @@ class Ship extends Croquet.Model {
     hitBy(asteroid) {
         asteroid.destroy();
         this.hit = 1;
-        this.score = 0;
-        this.forward = false;
-        this.left = false;
-        this.right = false;
     }
 }
 Ship.register("Ship");
