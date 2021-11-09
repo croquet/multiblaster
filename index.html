@@ -55,6 +55,7 @@ class Game extends Croquet.Model {
 
     checkCollisions() {
         for (const asteroid of this.asteroids) {
+            if (asteroid.wasHit) continue;
             const minx = asteroid.x - asteroid.size;
             const maxx = asteroid.x + asteroid.size;
             const miny = asteroid.y - asteroid.size;
@@ -146,6 +147,8 @@ class Ship extends Croquet.Model {
             }
             if (this.left) this.a -= 0.2;
             if (this.right) this.a += 0.2;
+            if (this.a < 0) this.a += Math.PI * 2;
+            if (this.a > Math.PI * 2) this.a -= Math.PI * 2;
         }
         this.x += this.dx;
         this.y += this.dy;
@@ -153,12 +156,10 @@ class Ship extends Croquet.Model {
         if (this.x > 1000) this.x -= 1000;
         if (this.y < 0) this.y += 1000;
         if (this.y > 1000) this.y -= 1000;
-        if (this.a < 0) this.a += Math.PI * 2;
-        if (this.a > Math.PI * 2) this.a -= Math.PI * 2;
     }
     hitBy(asteroid) {
-        asteroid.destroy();
         this.wasHit = 1;
+        asteroid.wasHit = 1;
     }
 }
 Ship.register("Ship");
@@ -184,21 +185,27 @@ class Asteroid extends Croquet.Model {
             this.dx = Math.cos(this.a) * speed;
             this.dy = Math.sin(this.a) * speed;
             this.da = (0.02 + Math.random() * 0.03) * (Math.random() < 0.5 ? 1 : -1);
+            this.wasHit = 0;
             this.move();
         }
         this.wellKnownModel("modelRoot").asteroids.add(this);
     }
 
     move(factor=1) {
+        if (this.wasHit) {
+            if (++this.wasHit > 60) this.destroy();
+        }
         this.x += this.dx * factor;
         this.y += this.dy * factor;
-        this.a += this.da;
         if (this.x < 0) this.x += 1000;
         if (this.x > 1000) this.x -= 1000;
         if (this.y < 0) this.y += 1000;
         if (this.y > 1000) this.y -= 1000;
-        if (this.a < 0) this.a += Math.PI * 2;
-        if (this.a > Math.PI * 2) this.a -= Math.PI * 2;
+        if (!this.wasHit) {
+            this.a += this.da;
+            if (this.a < 0) this.a += Math.PI * 2;
+            if (this.a > Math.PI * 2) this.a -= Math.PI * 2;
+        }
     }
 
     hitBy(blast) {
@@ -214,7 +221,7 @@ class Asteroid extends Croquet.Model {
             this.move(this.size / 2);
             asteroid.move(this.size / 2);
         } else {
-            this.destroy();
+            this.wasHit = 1;
         }
         blast.destroy();
     }
@@ -348,7 +355,7 @@ class Display extends Croquet.View {
             this.context.translate(x, y);
             if (ship.score) this.context.fillText(ship.score, 30, 15);
             this.context.rotate(a);
-            if (ship.wasHit) this.drawDebris(ship.wasHit);
+            if (ship.wasHit) this.drawShipDebris(ship.wasHit);
             else this.drawShip(ship.forward, ship.viewId === this.viewId);
             this.context.restore();
         }
@@ -357,7 +364,8 @@ class Display extends Croquet.View {
             this.context.save();
             this.context.translate(x, y);
             this.context.rotate(a);
-            this.drawAsteroid(asteroid.size);
+            if (asteroid.wasHit) this.drawAsteroidDebris(asteroid.size, asteroid.wasHit * 2);
+            else this.drawAsteroid(asteroid.size);
             this.context.restore();
         }
         for (const blast of this.model.blasts) {
@@ -407,7 +415,7 @@ class Display extends Croquet.View {
         }
     }
 
-    drawDebris(t) {
+    drawShipDebris(t) {
         this.context.beginPath();
         this.context.moveTo(+20 + t,   0 + t);
         this.context.lineTo(-20 + t, +10 + t);
@@ -425,6 +433,19 @@ class Display extends Croquet.View {
         this.context.lineTo(-size,  0);
         this.context.lineTo( 0, -size);
         this.context.closePath();
+        this.context.stroke();
+    }
+
+    drawAsteroidDebris(size, t) {
+        this.context.beginPath();
+        this.context.moveTo(+size + t,  0 + t);
+        this.context.lineTo( 0 + t, +size + t);
+        this.context.moveTo(-size - t,  0 - t);
+        this.context.lineTo( 0 - t, -size - t);
+        this.context.moveTo(-size - t,  0 + t);
+        this.context.lineTo( 0 - t, +size + t);
+        this.context.moveTo(+size + t,  0 - t);
+        this.context.lineTo( 0 + t, -size - t);
         this.context.stroke();
     }
 
