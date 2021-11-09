@@ -38,7 +38,7 @@ class Game extends Croquet.Model {
         this.blasts = new Set();
         this.subscribe(this.sessionId, "view-join", this.viewJoined);
         this.subscribe(this.sessionId, "view-exit", this.viewExited);
-        this.asteroids.add(Asteroid.create({}));
+        Asteroid.create({});
         this.mainLoop();
     }
 
@@ -135,8 +135,10 @@ class Ship extends Croquet.Model {
 
     move() {
         if (this.wasHit) {
+            // keep drifting as debris for 3 seconds
             if (++this.wasHit > 60) this.reset();
         } else {
+            // process thruster controls
             if (this.forward) {
                 this.dx += Math.cos(this.a) * 0.5;
                 this.dy += Math.sin(this.a) * 0.5;
@@ -150,6 +152,7 @@ class Ship extends Croquet.Model {
             if (this.a < 0) this.a += Math.PI * 2;
             if (this.a > Math.PI * 2) this.a -= Math.PI * 2;
         }
+        // drift through space
         this.x += this.dx;
         this.y += this.dy;
         if (this.x < 0) this.x += 1000;
@@ -157,7 +160,9 @@ class Ship extends Croquet.Model {
         if (this.y < 0) this.y += 1000;
         if (this.y > 1000) this.y -= 1000;
     }
+
     hitBy(asteroid) {
+        // turn both into debris
         this.wasHit = 1;
         asteroid.wasHit = 1;
     }
@@ -193,6 +198,7 @@ class Asteroid extends Croquet.Model {
 
     move(factor=1) {
         if (this.wasHit) {
+            // keep drifting as debris for 3 seconds
             if (++this.wasHit > 60) this.destroy();
         }
         this.x += this.dx * factor;
@@ -221,6 +227,7 @@ class Asteroid extends Croquet.Model {
             this.move(this.size / 2);
             asteroid.move(this.size / 2);
         } else {
+            // turn into debris
             this.wasHit = 1;
         }
         blast.destroy();
@@ -230,6 +237,7 @@ class Asteroid extends Croquet.Model {
         const asteroids = this.wellKnownModel("modelRoot").asteroids;
         asteroids.delete(this);
         super.destroy();
+        // keep at least 5 asteroids around
         if (asteroids.size < 5) Asteroid.create({});
     }
 }
@@ -247,6 +255,7 @@ class Blast extends Croquet.Model {
     }
 
     move() {
+        // move for 1 second before disappearing
         if (++this.t < 20) {
             this.x += this.dx;
             this.y += this.dy;
