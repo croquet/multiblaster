@@ -9,12 +9,29 @@
                 height: 100%;
                 overflow: hidden;
                 touch-action: none;
+                background: #999;
+                user-select: none;
             }
             #canvas {
-                background: #000000;
+                background: #000;
                 object-fit: contain;
                 max-width: 100%;
                 max-height: 100%;
+            }
+            #joystick {
+                display: none;
+                position: absolute;
+                width: 120px;
+                height: 120px;
+                border: 3px solid #CCC;
+                border-radius: 60px;
+            }
+            #knob {
+                position: absolute;
+                width: 80px;
+                height: 80px;
+                border-radius: 40px;
+                background-color: #CCC;
             }
             #codelink {
                 position: fixed; bottom: 10px; right: 10px; padding: .5em; border-radius: 30px;
@@ -29,6 +46,7 @@
     </head>
     <body>
         <canvas id="canvas" width="1000" height="1000"></canvas>
+        <div id="joystick"><div id="knob"></div></div>
         <script>
 
 class Game extends Croquet.Model {
@@ -299,42 +317,57 @@ class Display extends Croquet.View {
             }
         };
 
-        let x = 0, y = 0, touching = false, right = false, left = false, forward = false;
+        let x = 0, y = 0, id = 0, right = false, left = false, forward = false;
+        const joystick = document.getElementById("joystick");
+        const knob = document.getElementById("knob");
         document.body.onpointerdown = (e) => {
             e.preventDefault();
-            if (!touching) {
-                touching = true;
+            if (!id) {
+                id = e.pointerId;
                 x = e.clientX;
                 y = e.clientY;
+                joystick.style.left = `${x - 60}px`;
+                joystick.style.top = `${y - 60}px`;
+                joystick.style.display = "block";
+                knob.style.left = `20px`;
+                knob.style.top = `20px`;
             }
         };
         document.body.onpointermove = (e) => {
             e.preventDefault();
-            if (touching) {
-                const dx = e.clientX - x;
-                const dy = e.clientY - y;
-                console.log(x, y);
-                if (dx > 50) {
+            if (id === e.pointerId) {
+                let dx = e.clientX - x;
+                let dy = e.clientY - y;
+                if (dx > 30) {
+                    dx = 30;
                     if (!right) { this.publish(this.viewId, "right-thruster", true); right = true; }
                 } else if (right) { this.publish(this.viewId, "right-thruster", false); right = false; }
-                if (dx < -50) {
+                if (dx < -30) {
+                    dx = -30;
                     if (!left) { this.publish(this.viewId, "left-thruster", true); left = true; }
                 } else if (left) { this.publish(this.viewId, "left-thruster", false); left = false; }
-                if (dy < -50) {
+                if (dy < -30) {
+                    dy = -30;
                     if (!forward) { this.publish(this.viewId, "forward-thruster", true); forward = true; }
                 } else if (forward) { this.publish(this.viewId, "forward-thruster", false); forward = false; }
+                if (dy > 0) dy = 0;
+                knob.style.left = `${20 + dx}px`;
+                knob.style.top = `${20 + dy}px`;
             }
         }
         document.body.onpointerup = (e) => {
             e.preventDefault();
-            if (touching) {
-                touching = false;
+            if (id === e.pointerId) {
+                id = 0;
                 if (!right && !left && !forward) {
                     this.publish(this.viewId, "fire-blaster");
                 }
                 if (right) { this.publish(this.viewId, "right-thruster", false); right = false; }
                 if (left) { this.publish(this.viewId, "left-thruster", false); left = false;  }
                 if (forward) { this.publish(this.viewId, "forward-thruster", false); forward = false; }
+                joystick.style.display = "none";
+            } else {
+                this.publish(this.viewId, "fire-blaster");
             }
         }
         document.body.onpointercancel = document.body.onpointerup;
