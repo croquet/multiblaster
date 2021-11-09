@@ -272,8 +272,8 @@ class Blast extends Croquet.Model {
     }
 
     move() {
-        // move for 1 second before disappearing
-        if (++this.t < 20) {
+        // move for 1.5 second before disappearing
+        if (++this.t < 30) {
             this.x += this.dx;
             this.y += this.dy;
             if (this.x < 0) this.x += 1000;
