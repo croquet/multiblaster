@@ -222,10 +222,7 @@ class Asteroid extends Croquet.Model {
             this.da *= 1.5;
             this.dx = -blast.dy / 5;
             this.dy = blast.dx / 5;
-            const asteroid = Asteroid.create({ size: this.size, x: this.x, y: this.y, a: this.a, dx: -this.dx, dy: -this.dy, da: -this.da });
-            // move apart
-            this.move(this.size / 2);
-            asteroid.move(this.size / 2);
+            const asteroid = Asteroid.create({ size: this.size, x: this.x, y: this.y, a: this.a, dx: -this.dx, dy: -this.dy, da: this.da });
         } else {
             // turn into debris
             this.wasHit = 1;
