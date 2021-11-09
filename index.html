@@ -355,7 +355,7 @@ class Display extends Croquet.View {
     update() {
         this.context.clearRect(0, 0, 1000, 1000);
         this.context.font = '40px sans-serif';
-        this.context.fillStyle = "gray";
+        this.context.fillStyle = "rgba(255, 255, 255, 0.5)";
         this.context.lineWidth = 3;
         this.context.strokeStyle = "white";
         for (const ship of this.model.ships.values()) {
