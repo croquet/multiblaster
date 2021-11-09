@@ -299,26 +299,21 @@ class Display extends Croquet.View {
             }
         };
 
-        const canvas = document.getElementById("canvas");
-        let mx = 0, my = 0, mdown = false, right = false, left = false, forward = false;
-        canvas.onmousedown = (e) => {
-            mdown = true;
-            mx = e.clientX;
-            my = e.clientY;
-        };
-        canvas.onmouseup = (e) => {
-            mdown = false;
-            if (!right && !left && !forward) {
-                this.publish(this.viewId, "fire-blaster");
+        let x = 0, y = 0, touching = false, right = false, left = false, forward = false;
+        document.body.onpointerdown = (e) => {
+            e.preventDefault();
+            if (!touching) {
+                touching = true;
+                x = e.clientX;
+                y = e.clientY;
             }
-            if (right) { this.publish(this.viewId, "right-thruster", false); right = false; }
-            if (left) { this.publish(this.viewId, "left-thruster", false); left = false;  }
-            if (forward) { this.publish(this.viewId, "forward-thruster", false); forward = false; }
         };
-        canvas.onmousemove = (e) => {
-            if (mdown) {
-                const dx = e.clientX - mx;
-                const dy = e.clientY - my;
+        document.body.onpointermove = (e) => {
+            e.preventDefault();
+            if (touching) {
+                const dx = e.clientX - x;
+                const dy = e.clientY - y;
+                console.log(x, y);
                 if (dx > 50) {
                     if (!right) { this.publish(this.viewId, "right-thruster", true); right = true; }
                 } else if (right) { this.publish(this.viewId, "right-thruster", false); right = false; }
@@ -330,19 +325,19 @@ class Display extends Croquet.View {
                 } else if (forward) { this.publish(this.viewId, "forward-thruster", false); forward = false; }
             }
         }
-        document.body.ontouchstart = (e) => {
+        document.body.onpointerup = (e) => {
             e.preventDefault();
-            if (!mdown) canvas.onmousedown(e.touches[0]);
+            if (touching) {
+                touching = false;
+                if (!right && !left && !forward) {
+                    this.publish(this.viewId, "fire-blaster");
+                }
+                if (right) { this.publish(this.viewId, "right-thruster", false); right = false; }
+                if (left) { this.publish(this.viewId, "left-thruster", false); left = false;  }
+                if (forward) { this.publish(this.viewId, "forward-thruster", false); forward = false; }
+            }
         }
-        document.body.ontouchmove = (e) => {
-            e.preventDefault();
-            if (!mdown) canvas.onmousedown(e.touches[0]);
-            else canvas.onmousemove(e.touches[0]);
-        }
-        document.body.ontouchend = (e) => {
-            e.preventDefault();
-            if (mdown) canvas.onmouseup(e.touches[0]);
-        }
+        document.body.onpointercancel = document.body.onpointerup;
 
         this.smoothing = new WeakMap();
 
