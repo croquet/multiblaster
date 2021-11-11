@@ -219,8 +219,8 @@ class Asteroid extends Croquet.Model {
 
     move(factor=1) {
         if (this.wasHit) {
-            // keep drifting as debris for 3 seconds
-            if (++this.wasHit > 60) this.destroy();
+            // keep drifting as debris, larger pieces drift longer
+            if (++this.wasHit > this.size) this.destroy();
         }
         this.x += this.dx * factor;
         this.y += this.dy * factor;
