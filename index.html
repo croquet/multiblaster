@@ -221,13 +221,13 @@ class Asteroid extends Croquet.Model {
         this.wellKnownModel("modelRoot").asteroids.add(this);
     }
 
-    move(factor=1) {
+    move() {
         if (this.wasHit) {
             // keep drifting as debris, larger pieces drift longer
             if (++this.wasHit > this.size) this.destroy();
         }
-        this.x += this.dx * factor;
-        this.y += this.dy * factor;
+        this.x += this.dx;
+        this.y += this.dy;
         if (this.x < 0) this.x += 1000;
         if (this.x > 1000) this.x -= 1000;
         if (this.y < 0) this.y += 1000;
