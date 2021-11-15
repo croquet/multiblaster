@@ -55,6 +55,7 @@
         <canvas id="canvas" width="1000" height="1000"></canvas>
         <div id="joystick"><div id="knob"></div></div>
         <script>
+/////////// Model code is executed inside of synced VM /////////// 
 
 class Game extends Croquet.Model {
     init() {
@@ -93,7 +94,7 @@ class Game extends Croquet.Model {
             }
             for (const ship of this.ships.values()) {
                 if (!ship.wasHit && ship.x + 10 > minx && ship.x - 10 < maxx && ship.y + 10 > miny && ship.y - 10 < maxy) {
-                    if (!ship.score && Math.abs(ship.x-500) + Math.abs(ship.y-500) < 40) continue;
+                    if (!ship.score && Math.abs(ship.x-500) + Math.abs(ship.y-500) < 40) continue; // no hit if just spawned
                     ship.hitBy(asteroid);
                     break;
                 }
@@ -106,7 +107,7 @@ class Game extends Croquet.Model {
         for (const asteroid of this.asteroids) asteroid.move();
         for (const blast of this.blasts) blast.move();
         this.checkCollisions();
-        this.future(50).mainLoop();
+        this.future(50).mainLoop(); // move & check every 50 ms
     }
 }
 Game.register("Game");
@@ -298,7 +299,7 @@ class Blast extends Croquet.Model {
 Blast.register("Blast");
 
 
-///////////////////////////////////////////////////////////////////////////////
+/////////// Code below is executed outside of synced VM /////////// 
 
 
 class Display extends Croquet.View {
@@ -380,11 +381,13 @@ class Display extends Croquet.View {
         }
         document.body.onpointercancel = document.body.onpointerup;
 
-        this.smoothing = new WeakMap();
+        this.smoothing = new WeakMap(); // position cache for interpolated rendering
 
         this.context = canvas.getContext("2d");
     }
 
+    // update is called once per render frame
+    // read from shared model, interpolate, render
     update() {
         this.context.clearRect(0, 0, 1000, 1000);
         this.context.font = '40px sans-serif';
