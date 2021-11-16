@@ -1,7 +1,7 @@
 <html>
     <head>
         <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+        <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
         <title>Croquet Multiblaster</title>
         <style>
             html, body {
@@ -54,6 +54,8 @@
     <body>
         <canvas id="canvas" width="1000" height="1000"></canvas>
         <div id="joystick"><div id="knob"></div></div>
+        <a id="codelink" href="https://github.com/croquet/multiblaster/blob/master/index.html"
+            title="View source code on GitHub" target="_blank">{}</a>
         <script>
 /////////// Model code is executed inside of synced VM /////////// 
 
@@ -380,6 +382,8 @@ class Display extends Croquet.View {
             }
         }
         document.body.onpointercancel = document.body.onpointerup;
+        document.body.ontouchend = e => e.preventDefault(); // prevent double-tap zoom on iOS
+        codelink.ontouchend = () => codelink.click(); // but allow clicking link ¯\_(ツ)_/¯
 
         this.smoothing = new WeakMap(); // position cache for interpolated rendering
 
@@ -512,9 +516,6 @@ Croquet.Session.join({
     model: Game,
     view: Display,
 });
-
         </script>
-        <a id="codelink" href="https://github.com/croquet/multiblaster/blob/master/index.html"
-            title="View source code on GitHub" target="_blank">{}</a>
     </body>
 </html>
