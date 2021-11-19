@@ -332,7 +332,7 @@ class Display extends Croquet.View {
         };
 
         let x = 0, y = 0, id = 0, right = false, left = false, forward = false;
-        document.body.onpointerdown = (e) => {
+        document.onpointerdown = (e) => {
             if (!id) {
                 id = e.pointerId;
                 x = e.clientX;
@@ -342,7 +342,7 @@ class Display extends Croquet.View {
                 joystick.style.display = "block";
             }
         };
-        document.body.onpointermove = (e) => {
+        document.onpointermove = (e) => {
             e.preventDefault();
             if (id === e.pointerId) {
                 let dx = e.clientX - x;
@@ -364,7 +364,7 @@ class Display extends Croquet.View {
                 knob.style.top = `${20 + dy}px`;
             }
         }
-        document.body.onpointerup = (e) => {
+        document.onpointerup = (e) => {
             e.preventDefault();
             if (id === e.pointerId) {
                 id = 0;
@@ -380,9 +380,9 @@ class Display extends Croquet.View {
                 this.publish(this.viewId, "fire-blaster");
             }
         }
-        document.body.onpointercancel = document.body.onpointerup;
-        document.body.oncontextmenu = e => { e.preventDefault();  this.publish(this.viewId, "fire-blaster"); }
-        document.body.ontouchend = e => e.preventDefault(); // prevent double-tap zoom on iOS
+        document.onpointercancel = document.onpointerup;
+        document.oncontextmenu = e => { e.preventDefault();  this.publish(this.viewId, "fire-blaster"); }
+        document.ontouchend = e => e.preventDefault(); // prevent double-tap zoom on iOS
         codelink.ontouchend = () => codelink.click(); // but allow clicking link ¯\_(ツ)_/¯
 
         this.smoothing = new WeakMap(); // position cache for interpolated rendering
