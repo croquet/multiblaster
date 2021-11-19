@@ -333,7 +333,6 @@ class Display extends Croquet.View {
 
         let x = 0, y = 0, id = 0, right = false, left = false, forward = false;
         document.body.onpointerdown = (e) => {
-            e.preventDefault();
             if (!id) {
                 id = e.pointerId;
                 x = e.clientX;
