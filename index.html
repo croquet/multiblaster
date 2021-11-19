@@ -382,6 +382,7 @@ class Display extends Croquet.View {
             }
         }
         document.body.onpointercancel = document.body.onpointerup;
+        document.body.oncontextmenu = e => { e.preventDefault();  this.publish(this.viewId, "fire-blaster"); }
         document.body.ontouchend = e => e.preventDefault(); // prevent double-tap zoom on iOS
         codelink.ontouchend = () => codelink.click(); // but allow clicking link ¯\_(ツ)_/¯
 
