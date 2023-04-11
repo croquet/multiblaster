@@ -49,7 +49,7 @@
                 opacity: 100%;
             }
         </style>
-        <script src="https://unpkg.com/@croquet/croquet@1.0"></script>
+        <script src="https://cdn.jsdelivr.net/npm/@croquet/croquet@1.0.5"></script>
     </head>
     <body>
         <canvas id="canvas" width="1000" height="1000"></canvas>
@@ -57,7 +57,7 @@
         <a id="codelink" href="https://github.com/croquet/multiblaster/blob/main/index.html"
             title="View source code on GitHub" target="_blank">{}</a>
         <script>
-/////////// Model code is executed inside of synced VM /////////// 
+/////////// Model code is executed inside of synced VM ///////////
 
 class Game extends Croquet.Model {
     init() {
@@ -301,7 +301,7 @@ class Blast extends Croquet.Model {
 Blast.register("Blast");
 
 
-/////////// Code below is executed outside of synced VM /////////// 
+/////////// Code below is executed outside of synced VM ///////////
 
 
 class Display extends Croquet.View {
