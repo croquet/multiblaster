@@ -312,7 +312,7 @@ class Display extends Croquet.View {
                 case "a": case "A": case "ArrowLeft":  this.publish(this.viewId, "left-thruster", true); break;
                 case "d": case "D": case "ArrowRight": this.publish(this.viewId, "right-thruster", true); break;
                 case "w": case "W": case "ArrowUp":    this.publish(this.viewId, "forward-thruster", true); break;
-                case " ":                              this.publish(this.viewId, "fire-blaster"); break;
+                case "s": case "S": case " ":          this.publish(this.viewId, "fire-blaster"); break;
             }
         };
         document.onkeyup = (e) => {
