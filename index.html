@@ -81,6 +81,14 @@ class Game extends Croquet.Model {
         ship.destroy();
     }
 
+    mainLoop() {
+        for (const ship of this.ships.values()) ship.move();
+        for (const asteroid of this.asteroids) asteroid.move();
+        for (const blast of this.blasts) blast.move();
+        this.checkCollisions();
+        this.future(50).mainLoop(); // move & check every 50 ms
+    }
+
     checkCollisions() {
         for (const asteroid of this.asteroids) {
             if (asteroid.wasHit) continue;
@@ -103,25 +111,31 @@ class Game extends Croquet.Model {
             }
         }
     }
-
-    mainLoop() {
-        for (const ship of this.ships.values()) ship.move();
-        for (const asteroid of this.asteroids) asteroid.move();
-        for (const blast of this.blasts) blast.move();
-        this.checkCollisions();
-        this.future(50).mainLoop(); // move & check every 50 ms
-    }
 }
 Game.register("Game");
 
-class Ship extends Croquet.Model {
+class SpaceObject extends Croquet.Model {
+    move() {
+        // drift through space
+        this.x += this.dx;
+        this.y += this.dy;
+        if (this.x < 0) this.x += 1000;
+        if (this.x > 1000) this.x -= 1000;
+        if (this.y < 0) this.y += 1000;
+        if (this.y > 1000) this.y -= 1000;
+        if (this.a < 0) this.a += 2 * Math.PI;
+        if (this.a > 2 * Math.PI) this.a -= 2 * Math.PI;
+    }
+}
+
+class Ship extends SpaceObject {
     init({ viewId }) {
         this.viewId = viewId;
-        this.reset();
         this.subscribe(viewId, "left-thruster", this.leftThruster);
         this.subscribe(viewId, "right-thruster", this.rightThruster);
         this.subscribe(viewId, "forward-thruster", this.forwardThruster);
         this.subscribe(viewId, "fire-blaster", this.fireBlaster);
+        this.reset();
     }
 
     reset() {
@@ -138,17 +152,14 @@ class Ship extends Croquet.Model {
     }
 
     leftThruster(active) {
-        if (this.wasHit) return;
         this.left = active;
     }
 
     rightThruster(active) {
-        if (this.wasHit) return;
         this.right = active;
     }
 
     forwardThruster(active) {
-        if (this.wasHit) return;
         this.forward = active;
     }
 
@@ -173,16 +184,8 @@ class Ship extends Croquet.Model {
             if (this.forward) this.accelerate(0.5);
             if (this.left) this.a -= 0.2;
             if (this.right) this.a += 0.2;
-            if (this.a < 0) this.a += Math.PI * 2;
-            if (this.a > Math.PI * 2) this.a -= Math.PI * 2;
         }
-        // drift through space
-        this.x += this.dx;
-        this.y += this.dy;
-        if (this.x < 0) this.x += 1000;
-        if (this.x > 1000) this.x -= 1000;
-        if (this.y < 0) this.y += 1000;
-        if (this.y > 1000) this.y -= 1000;
+       super.move();
     }
 
     accelerate(force) {
@@ -202,7 +205,7 @@ class Ship extends Croquet.Model {
 }
 Ship.register("Ship");
 
-class Asteroid extends Croquet.Model {
+class Asteroid extends SpaceObject {
     init({ size, x, y, a, dx, dy, da }) {
         if (size) {
             // init second asteroid after spliting
@@ -224,7 +227,7 @@ class Asteroid extends Croquet.Model {
             this.dy = Math.sin(this.a) * speed;
             this.da = (0.02 + Math.random() * 0.03) * (Math.random() < 0.5 ? 1 : -1);
             this.wasHit = 0;
-            this.move();
+            this.move(); // random (x,y) is around top-left corner, wrap to other corners
         }
         this.wellKnownModel("modelRoot").asteroids.add(this);
     }
@@ -232,19 +235,12 @@ class Asteroid extends Croquet.Model {
     move() {
         if (this.wasHit) {
             // keep drifting as debris, larger pieces drift longer
-            if (++this.wasHit > this.size) this.destroy();
-        }
-        this.x += this.dx;
-        this.y += this.dy;
-        if (this.x < 0) this.x += 1000;
-        if (this.x > 1000) this.x -= 1000;
-        if (this.y < 0) this.y += 1000;
-        if (this.y > 1000) this.y -= 1000;
-        if (!this.wasHit) {
+            if (++this.wasHit > this.size) return this.destroy();
+        } else {
+            // spin
             this.a += this.da;
-            if (this.a < 0) this.a += Math.PI * 2;
-            if (this.a > Math.PI * 2) this.a -= Math.PI * 2;
         }
+        super.move();
     }
 
     hitBy(blast) {
@@ -273,7 +269,7 @@ class Asteroid extends Croquet.Model {
 }
 Asteroid.register("Asteroid");
 
-class Blast extends Croquet.Model {
+class Blast extends SpaceObject {
     init({x, y, dx, dy, ship}) {
         this.ship = ship;
         this.x = x;
@@ -286,16 +282,8 @@ class Blast extends Croquet.Model {
 
     move() {
         // move for 1.5 second before disappearing
-        if (++this.t < 30) {
-            this.x += this.dx;
-            this.y += this.dy;
-            if (this.x < 0) this.x += 1000;
-            if (this.x > 1000) this.x -= 1000;
-            if (this.y < 0) this.y += 1000;
-            if (this.y > 1000) this.y -= 1000;
-        } else {
-            this.destroy();
-        }
+        if (++this.t > 30) return this.destroy();
+        super.move();
     }
 
     destroy() {
