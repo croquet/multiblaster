@@ -115,6 +115,8 @@ class Game extends Croquet.Model {
 Game.register("Game");
 
 class SpaceObject extends Croquet.Model {
+    get game() { return this.wellKnownModel("modelRoot"); }
+
     move() {
         // drift through space
         this.x += this.dx;
@@ -231,7 +233,7 @@ class Asteroid extends SpaceObject {
             this.wasHit = 0;
             this.move(); // random (x,y) is around top-left corner, wrap to other corners
         }
-        this.wellKnownModel("modelRoot").asteroids.add(this);
+        this.game.asteroids.add(this);
     }
 
     move() {
@@ -262,11 +264,10 @@ class Asteroid extends SpaceObject {
     }
 
     destroy() {
-        const asteroids = this.wellKnownModel("modelRoot").asteroids;
-        asteroids.delete(this);
+        this.game.asteroids.delete(this);
         super.destroy();
         // keep at least 5 asteroids around
-        if (asteroids.size < 5) Asteroid.create({});
+        if (this.game.asteroids.size < 5) Asteroid.create({});
     }
 }
 Asteroid.register("Asteroid");
@@ -280,7 +281,7 @@ class Blast extends SpaceObject {
         this.dx = dx;
         this.dy = dy;
         this.t = 0;
-        this.wellKnownModel("modelRoot").blasts.add(this);
+        this.game.blasts.add(this);
     }
 
     move() {
@@ -290,7 +291,7 @@ class Blast extends SpaceObject {
     }
 
     destroy() {
-        this.wellKnownModel("modelRoot").blasts.delete(this);
+        this.game.blasts.delete(this);
         super.destroy();
     }
 }
