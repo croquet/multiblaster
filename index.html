@@ -295,6 +295,7 @@ class Asteroid extends SpaceObject {
         } else {
             // turn into debris
             this.wasHit = 1;
+            this.ship = blast.ship;
         }
         blast.destroy();
     }
@@ -440,8 +441,9 @@ class Display extends Croquet.View {
         this.context.fillStyle = "rgba(255, 255, 255, 0.5)";
         this.context.lineWidth = 3;
         this.context.strokeStyle = "white";
-        this.context.font = '30px sans-serif';
+        this.context.font = "30px sans-serif";
         this.context.textAlign = "left";
+        this.context.textBaseline = "middle";
         // model highscore only keeps players with initials, merge with unnamed players
         const highscore = Object.entries(this.model.highscores);
         const labels = new Map();
@@ -462,31 +464,35 @@ class Display extends Croquet.View {
             this.context.fillText(`${i + 1}. ${label}: ${score}`, 10, 30 + i * 35);
         }
         // draw ships, asteroids, and blasters
-        this.context.font = '40px sans-serif';
+        this.context.font = "40px sans-serif";
         for (const ship of this.model.ships.values()) {
             const { x, y, a } = this.smoothPosAndAngle(ship);
             this.context.save();
             this.context.translate(x, y);
             this.context.textAlign = "right";
-            this.context.fillText(labels.get(ship), -30, 15);
+            this.context.fillText(labels.get(ship), -30, 0);
             this.context.textAlign = "left";
-            this.context.fillText(ship.score, 30, 15);
+            this.context.fillText(ship.score, 30, 0);
             this.context.rotate(a);
             if (ship.wasHit) this.drawShipDebris(ship.wasHit);
             else this.drawShip(ship.forward, ship.viewId === this.viewId);
             this.context.restore();
         }
+        this.context.textAlign = "center";
         for (const asteroid of this.model.asteroids) {
             const { x, y, a } = this.smoothPosAndAngle(asteroid);
             this.context.save();
             this.context.translate(x, y);
+            if (asteroid.wasHit && emojis.get(asteroid.ship)) {
+                this.context.font = `${asteroid.wasHit * 4}px sans-serif`;
+                this.context.fillText(emojis.get(asteroid.ship), 0, 0);
+            }
             this.context.rotate(a);
             if (asteroid.wasHit) this.drawAsteroidDebris(asteroid.size, asteroid.wasHit * 2);
             else this.drawAsteroid(asteroid.size);
             this.context.restore();
         }
-        this.context.font = '20px sans-serif';
-        this.context.textAlign = "center";
+        this.context.font = "20px sans-serif";
         for (const blast of this.model.blasts) {
             const { x, y } = this.smoothPos(blast);
             this.context.save();
