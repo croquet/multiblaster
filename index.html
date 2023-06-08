@@ -130,6 +130,7 @@ class SpaceObject extends Croquet.Model {
 
 class Ship extends SpaceObject {
     init({ viewId }) {
+        super.init();
         this.viewId = viewId;
         this.subscribe(viewId, "left-thruster", this.leftThruster);
         this.subscribe(viewId, "right-thruster", this.rightThruster);
@@ -207,6 +208,7 @@ Ship.register("Ship");
 
 class Asteroid extends SpaceObject {
     init({ size, x, y, a, dx, dy, da }) {
+        super.init();
         if (size) {
             // init second asteroid after spliting
             this.size = size;
@@ -271,6 +273,7 @@ Asteroid.register("Asteroid");
 
 class Blast extends SpaceObject {
     init({x, y, dx, dy, ship}) {
+        super.init();
         this.ship = ship;
         this.x = x;
         this.y = y;
