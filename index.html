@@ -472,12 +472,12 @@ class Display extends Croquet.View {
             this.context.save();
             this.context.translate(x, y);
             this.context.textAlign = "right";
-            this.context.fillText(labels.get(ship), -30, 0);
+            this.context.fillText(labels.get(ship), -30 + ship.wasHit * 2, 0);
             this.context.textAlign = "left";
-            this.context.fillText(ship.score, 30, 0);
+            this.context.fillText(ship.score, 30 - ship.wasHit * 2, 0);
             this.context.rotate(a);
             if (ship.wasHit) this.drawShipDebris(ship.wasHit);
-            else this.drawShip(ship.forward, ship.viewId === this.viewId);
+            else this.drawShip(ship, ship.viewId === this.viewId);
             this.context.restore();
         }
         this.context.textAlign = "center";
@@ -523,7 +523,7 @@ class Display extends Croquet.View {
         return smoothed;
     }
 
-    drawShip(thrust, highlight) {
+    drawShip(ship, highlight) {
         this.context.beginPath();
         this.context.moveTo(+20,   0);
         this.context.lineTo(-20, +10);
@@ -531,13 +531,24 @@ class Display extends Croquet.View {
         this.context.closePath();
         this.context.stroke();
         if (highlight) {
-            this.context.fill();
+            // this.context.fill();
         }
-        if (thrust) {
-            this.context.beginPath();
+        if (ship.forward) {
             this.context.moveTo(-20, +5);
             this.context.lineTo(-30,  0);
             this.context.lineTo(-20, -5);
+            this.context.stroke();
+        }
+        if (ship.left) {
+            this.context.moveTo(-18,  -9);
+            this.context.lineTo(-13, -15);
+            this.context.lineTo(-10,  -7);
+            this.context.stroke();
+        }
+        if (ship.right) {
+            this.context.moveTo(-18,  +9);
+            this.context.lineTo(-13, +15);
+            this.context.lineTo(-10,  +7);
             this.context.stroke();
         }
     }
