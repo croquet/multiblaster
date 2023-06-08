@@ -1,6 +1,6 @@
 # Croquet Multiblaster
 
-This is an homage to Asteroids, implemented as a single HTML page without any backend code. 
+This is an homage to Asteroids, implemented as a single HTML page without any backend code.
 All clients are kept in sync automatically by [Croquet](https://croquet.io/)'s synchronization technology.
 
 # Play It!
@@ -9,7 +9,7 @@ https://croquet.io/multiblaster
 
 * open this URL to create a new session
 * use arrow keys to move, and space bar to shoot
-* on phones, drag up/left/right to move, and tap to shoot
+* on phones, drag up/left/right to move, while tapping another finger to shoot
 * to join the same session, scan the QR code in the lower left
 * or share the session URL
 
@@ -18,7 +18,8 @@ https://croquet.io/multiblaster
 * copy the [index.html](index.html) file to your own machine
 * replace our API key with your own from [croquet.io/keys](https://croquet.io/keys/)
 * edit however you like
-* serve that single file from any webserver to play with it 
+* open the file in a web browser to play
+* copy that single file to any webserver to play with friends
 
 # Learn more
 
