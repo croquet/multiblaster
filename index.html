@@ -56,6 +56,10 @@
             }
         </style>
         <script src="https://cdn.jsdelivr.net/npm/@croquet/croquet@1.0.5"></script>
+        <script type="module">
+            import emoji_regex from "https://cdn.jsdelivr.net/npm/emoji-regex/index.mjs";
+            window.EMOJI_REGEX = emoji_regex();
+        </script>
     </head>
     <body>
         <canvas id="canvas" width="1000" height="1000"></canvas>
@@ -437,14 +441,19 @@ class Display extends Croquet.View {
         this.context.lineWidth = 3;
         this.context.strokeStyle = "white";
         this.context.font = '30px sans-serif';
+        this.context.textAlign = "left";
         // model highscore only keeps players with initials, merge with unnamed players
         const highscore = Object.entries(this.model.highscores);
         const labels = new Map();
+        const emojis = new Map();
         for (const ship of this.model.ships.values()) {
             let label = ship.initials;
             if (!label) {
                 label = `Player ${labels.size + 1}`;
                 highscore.push([label, ship.score]);
+            } else {
+                const emoji = label.match(EMOJI_REGEX);
+                if (emoji?.length) emojis.set(ship, emoji[0]);
             }
             labels.set(ship, label);
         }
@@ -476,11 +485,13 @@ class Display extends Croquet.View {
             else this.drawAsteroid(asteroid.size);
             this.context.restore();
         }
+        this.context.font = '20px sans-serif';
+        this.context.textAlign = "center";
         for (const blast of this.model.blasts) {
             const { x, y } = this.smoothPos(blast);
             this.context.save();
             this.context.translate(x, y);
-            this.drawBlast();
+            this.drawBlast(emojis.get(blast.ship));
             this.context.restore();
         }
     }
@@ -557,11 +568,15 @@ class Display extends Croquet.View {
         this.context.stroke();
     }
 
-    drawBlast() {
-        this.context.beginPath();
-        this.context.ellipse(0, 0, 2, 2, 0, 0, 2 * Math.PI);
-        this.context.closePath();
-        this.context.stroke();
+    drawBlast(emoji=null) {
+        if (emoji) {
+            this.context.fillText(emoji, 0, 0);
+        } else {
+            this.context.beginPath();
+            this.context.ellipse(0, 0, 2, 2, 0, 0, 2 * Math.PI);
+            this.context.closePath();
+            this.context.stroke();
+        }
     }
 }
 
