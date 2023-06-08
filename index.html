@@ -154,11 +154,14 @@ class Ship extends Croquet.Model {
 
     fireBlaster() {
         if (this.wasHit) return;
+        // create blast moving at speed 20 in direction of ship
         const dx = Math.cos(this.a) * 20;
         const dy = Math.sin(this.a) * 20;
         const x = this.x + dx;
         const y = this.y + dy;
         Blast.create({ x, y, dx, dy, ship: this });
+        // kick ship back a bit
+        this.accelerate(-0.5);
     }
 
     move() {
@@ -167,14 +170,7 @@ class Ship extends Croquet.Model {
             if (++this.wasHit > 60) this.reset();
         } else {
             // process thruster controls
-            if (this.forward) {
-                this.dx += Math.cos(this.a) * 0.5;
-                this.dy += Math.sin(this.a) * 0.5;
-                if (this.dx > 10) this.dx = 10;
-                if (this.dx < -10) this.dx = -10;
-                if (this.dy > 10) this.dy = 10;
-                if (this.dy < -10) this.dy = -10;
-            }
+            if (this.forward) this.accelerate(0.5);
             if (this.left) this.a -= 0.2;
             if (this.right) this.a += 0.2;
             if (this.a < 0) this.a += Math.PI * 2;
@@ -187,6 +183,15 @@ class Ship extends Croquet.Model {
         if (this.x > 1000) this.x -= 1000;
         if (this.y < 0) this.y += 1000;
         if (this.y > 1000) this.y -= 1000;
+    }
+
+    accelerate(force) {
+        this.dx += Math.cos(this.a) * force;
+        this.dy += Math.sin(this.a) * force;
+        if (this.dx > 10) this.dx = 10;
+        if (this.dx < -10) this.dx = -10;
+        if (this.dy > 10) this.dy = 10;
+        if (this.dy < -10) this.dy = -10;
     }
 
     hitBy(asteroid) {
