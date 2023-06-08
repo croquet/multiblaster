@@ -427,6 +427,8 @@ class Display extends Croquet.View {
         if (localStorage.getItem("io.croquet.multiblaster.initials")) {
             initials.value = localStorage.getItem("io.croquet.multiblaster.initials");
             this.publish(this.viewId, "set-initials", initials.value);
+            // after reloading, our previous ship with initials is still there, so just try again once
+            setTimeout(() => this.publish(this.viewId, "set-initials", initials.value), 1000);
         }
 
         this.smoothing = new WeakMap(); // position cache for interpolated rendering
