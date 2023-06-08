@@ -40,12 +40,18 @@
                 border-radius: 40px;
                 background-color: #FFF;
             }
+            #initials {
+                position: fixed; bottom: 10px; right: 70px; padding: .5em; border-radius: 30px;
+                opacity: 50%; background: lightgray; box-shadow: 1px 1px 5px black;
+                border: none; color: #000; text-align: center; font-size: 1.2em;
+
+            }
             #codelink {
                 position: fixed; bottom: 10px; right: 10px; padding: .5em; border-radius: 30px;
                 opacity: 50%; background: lightgray; box-shadow: 1px 1px 5px black;
                 text-decoration: none; font-family: monospace; font-size: 1.5em;
             }
-            #codelink:hover {
+            #codelink:hover, #initials:hover {
                 opacity: 100%;
             }
         </style>
@@ -54,13 +60,15 @@
     <body>
         <canvas id="canvas" width="1000" height="1000"></canvas>
         <div id="joystick"><div id="knob"></div></div>
+        <input id="initials" type="text" maxlength="10" size="10" placeholder="Initials">
         <a id="codelink" href="https://github.com/croquet/multiblaster/blob/main/index.html"
             title="View source code on GitHub" target="_blank">{}</a>
         <script>
 /////////// Model code is executed inside of synced VM ///////////
 
 class Game extends Croquet.Model {
-    init() {
+    init(_, persisted) {
+        this.highscores = persisted?.highscores ?? {};
         this.ships = new Map();
         this.asteroids = new Set();
         this.blasts = new Set();
@@ -79,6 +87,12 @@ class Game extends Croquet.Model {
         const ship = this.ships.get(viewId);
         this.ships.delete(viewId);
         ship.destroy();
+    }
+
+    setHighscore(initials, score) {
+        if (this.highscores[initials] >= score) return;
+        this.highscores[initials] = score;
+        this.persistSession({ highscores: this.highscores });
     }
 
     mainLoop() {
@@ -134,10 +148,12 @@ class Ship extends SpaceObject {
     init({ viewId }) {
         super.init();
         this.viewId = viewId;
+        this.initials = '';
         this.subscribe(viewId, "left-thruster", this.leftThruster);
         this.subscribe(viewId, "right-thruster", this.rightThruster);
         this.subscribe(viewId, "forward-thruster", this.forwardThruster);
         this.subscribe(viewId, "fire-blaster", this.fireBlaster);
+        this.subscribe(viewId, "set-initials", this.setInitials);
         this.reset();
     }
 
@@ -200,6 +216,22 @@ class Ship extends SpaceObject {
         if (this.dy < -10) this.dy = -10;
     }
 
+    setInitials(initials) {
+        if (!initials) return;
+        for (const ship of this.game.ships.values()) {
+            if (ship.initials === initials) return;
+        }
+        const highscore = this.game.highscores[this.initials];
+        if (highscore !== undefined) delete this.game.highscores[this.initials];
+        this.initials = initials;
+        this.game.setHighscore(this.initials, Math.max(this.score, highscore || 0));
+    }
+
+    scored() {
+        this.score++;
+        if (this.initials) this.game.setHighscore(this.initials, this.score);
+    }
+
     hitBy(asteroid) {
         // turn both into debris
         this.wasHit = 1;
@@ -248,7 +280,7 @@ class Asteroid extends SpaceObject {
     }
 
     hitBy(blast) {
-        if (!blast.ship.wasHit) blast.ship.score++;
+        if (!blast.ship.wasHit) blast.ship.scored();
         if (this.size > 20) {
             // split into two smaller faster asteroids
             this.size *= 0.7;
@@ -382,6 +414,16 @@ class Display extends Croquet.View {
         document.ontouchend = e => e.preventDefault(); // prevent double-tap zoom on iOS
         codelink.ontouchend = () => codelink.click(); // but allow clicking link ¯\_(ツ)_/¯
 
+        initials.ontouchend = () => initials.focus(); // and allow input ¯\_(ツ)_/¯
+        initials.oninput = () => {
+            this.publish(this.viewId, "set-initials", initials.value);
+            localStorage.setItem("io.croquet.multiblaster.initials", initials.value);
+        }
+        if (localStorage.getItem("io.croquet.multiblaster.initials")) {
+            initials.value = localStorage.getItem("io.croquet.multiblaster.initials");
+            this.publish(this.viewId, "set-initials", initials.value);
+        }
+
         this.smoothing = new WeakMap(); // position cache for interpolated rendering
 
         this.context = canvas.getContext("2d");
@@ -391,15 +433,35 @@ class Display extends Croquet.View {
     // read from shared model, interpolate, render
     update() {
         this.context.clearRect(0, 0, 1000, 1000);
-        this.context.font = '40px sans-serif';
         this.context.fillStyle = "rgba(255, 255, 255, 0.5)";
         this.context.lineWidth = 3;
         this.context.strokeStyle = "white";
+        this.context.font = '30px sans-serif';
+        // model highscore only keeps players with initials, merge with unnamed players
+        const highscore = Object.entries(this.model.highscores);
+        const labels = new Map();
+        for (const ship of this.model.ships.values()) {
+            let label = ship.initials;
+            if (!label) {
+                label = `Player ${labels.size + 1}`;
+                highscore.push([label, ship.score]);
+            }
+            labels.set(ship, label);
+        }
+        // draw sorted highscore
+        for (const [i, [label, score]] of highscore.sort((a, b) => b[1] - a[1]).entries()) {
+            this.context.fillText(`${i + 1}. ${label}: ${score}`, 10, 30 + i * 35);
+        }
+        // draw ships, asteroids, and blasters
+        this.context.font = '40px sans-serif';
         for (const ship of this.model.ships.values()) {
             const { x, y, a } = this.smoothPosAndAngle(ship);
             this.context.save();
             this.context.translate(x, y);
-            if (ship.score) this.context.fillText(ship.score, 30, 15);
+            this.context.textAlign = "right";
+            this.context.fillText(labels.get(ship), -30, 15);
+            this.context.textAlign = "left";
+            this.context.fillText(ship.score, 30, 15);
             this.context.rotate(a);
             if (ship.wasHit) this.drawShipDebris(ship.wasHit);
             else this.drawShip(ship.forward, ship.viewId === this.viewId);
