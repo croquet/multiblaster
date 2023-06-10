@@ -420,7 +420,7 @@ class Display extends Croquet.View {
         codelink.ontouchend = () => codelink.click(); // but allow clicking link ¯\_(ツ)_/¯
 
         initials.ontouchend = () => initials.focus(); // and allow input ¯\_(ツ)_/¯
-        initials.oninput = () => {
+        initials.onchange = () => {
             this.publish(this.viewId, "set-initials", initials.value);
             localStorage.setItem("io.croquet.multiblaster.initials", initials.value);
         }
@@ -429,6 +429,12 @@ class Display extends Croquet.View {
             this.publish(this.viewId, "set-initials", initials.value);
             // after reloading, our previous ship with initials is still there, so just try again once
             setTimeout(() => this.publish(this.viewId, "set-initials", initials.value), 1000);
+        }
+        initials.onkeydown = (e) => {
+            if (e.key === "Enter") {
+                initials.blur();
+                e.preventDefault();
+            }
         }
 
         this.smoothing = new WeakMap(); // position cache for interpolated rendering
