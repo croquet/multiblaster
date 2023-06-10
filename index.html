@@ -162,8 +162,8 @@ class Ship extends SpaceObject {
     }
 
     reset() {
-        this.x = 500;
-        this.y = 500;
+        this.x = 480 + 40 * Math.random();
+        this.y = 480 + 40 * Math.random();
         this.a = -Math.PI / 2;
         this.dx = 0;
         this.dy = 0;
@@ -463,7 +463,7 @@ class Display extends Croquet.View {
                 highscore.push([label, ship.score]);
             } else {
                 const emoji = label.match(EMOJI_REGEX);
-                if (emoji?.length) emojis.set(ship, emoji[0]);
+                if (emoji?.length) emojis.set(ship, emoji[emoji.length >> 1]);
             }
             labels.set(ship, label);
         }
@@ -475,38 +475,36 @@ class Display extends Croquet.View {
         this.context.font = "40px sans-serif";
         for (const ship of this.model.ships.values()) {
             const { x, y, a } = this.smoothPosAndAngle(ship);
-            this.context.save();
-            this.context.translate(x, y);
-            this.context.textAlign = "right";
-            this.context.fillText(labels.get(ship), -30 + ship.wasHit * 2, 0);
-            this.context.textAlign = "left";
-            this.context.fillText(ship.score, 30 - ship.wasHit * 2, 0);
-            this.context.rotate(a);
-            if (ship.wasHit) this.drawShipDebris(ship.wasHit);
-            else this.drawShip(ship, ship.viewId === this.viewId);
-            this.context.restore();
+            this.drawWrapped(x, y, 300, () => {
+                this.context.textAlign = "right";
+                this.context.fillText(labels.get(ship), -30 + ship.wasHit * 2, 0);
+                this.context.textAlign = "left";
+                this.context.fillText(ship.score, 30 - ship.wasHit * 2, 0);
+                this.context.rotate(a);
+                if (ship.wasHit) this.drawShipDebris(ship.wasHit);
+                else this.drawShip(ship, ship.viewId === this.viewId);
+            });
         }
         this.context.textAlign = "center";
+        this.context.fillStyle = "white";
         for (const asteroid of this.model.asteroids) {
             const { x, y, a } = this.smoothPosAndAngle(asteroid);
-            this.context.save();
-            this.context.translate(x, y);
-            if (asteroid.wasHit && emojis.get(asteroid.ship)) {
-                this.context.font = `${asteroid.wasHit * 4}px sans-serif`;
-                this.context.fillText(emojis.get(asteroid.ship), 0, 0);
-            }
-            this.context.rotate(a);
-            if (asteroid.wasHit) this.drawAsteroidDebris(asteroid.size, asteroid.wasHit * 2);
-            else this.drawAsteroid(asteroid.size);
-            this.context.restore();
+            this.drawWrapped(x, y, 60, () => {
+                if (asteroid.wasHit && emojis.get(asteroid.ship)) {
+                    this.context.font = `${asteroid.wasHit * 4}px sans-serif`;
+                    this.context.fillText(emojis.get(asteroid.ship), 0, 0);
+                }
+                this.context.rotate(a);
+                if (asteroid.wasHit) this.drawAsteroidDebris(asteroid.size, asteroid.wasHit * 2);
+                else this.drawAsteroid(asteroid.size);
+            });
         }
         this.context.font = "20px sans-serif";
         for (const blast of this.model.blasts) {
             const { x, y } = this.smoothPos(blast);
-            this.context.save();
-            this.context.translate(x, y);
-            this.drawBlast(emojis.get(blast.ship));
-            this.context.restore();
+            this.drawWrapped(x, y, 10, () => {
+                this.drawBlast(emojis.get(blast.ship));
+            });
         }
     }
 
@@ -529,6 +527,25 @@ class Display extends Croquet.View {
         return smoothed;
     }
 
+    drawWrapped(x, y, size, draw) {
+        const drawIt = (x, y) => {
+            this.context.save();
+            this.context.translate(x, y);
+            draw();
+            this.context.restore();
+        }
+        drawIt(x, y);
+        // draw again on opposite sides if object is near edge
+        if (x - size < 0) drawIt(x + 1000, y);
+        if (x + size > 1000) drawIt(x - 1000, y);
+        if (y - size < 0) drawIt(x, y + 1000);
+        if (y + size > 1000) drawIt(x, y - 1000);
+        if (x - size < 0 && y - size < 0) drawIt(x + 1000, y + 1000);
+        if (x + size > 1000 && y + size > 1000) drawIt(x - 1000, y - 1000);
+        if (x - size < 0 && y + size > 1000) drawIt(x + 1000, y - 1000);
+        if (x + size > 1000 && y - size < 0) drawIt(x - 1000, y + 1000);
+    }
+
     drawShip(ship, highlight) {
         this.context.beginPath();
         this.context.moveTo(+20,   0);
@@ -537,7 +554,7 @@ class Display extends Croquet.View {
         this.context.closePath();
         this.context.stroke();
         if (highlight) {
-            // this.context.fill();
+            this.context.fill();
         }
         if (ship.forward) {
             this.context.moveTo(-20, +5);
