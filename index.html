@@ -55,7 +55,8 @@
                 opacity: 100%;
             }
         </style>
-        <script src="https://cdn.jsdelivr.net/npm/@croquet/croquet@1.0.5"></script>
+        <!-- <script src="https://cdn.jsdelivr.net/npm/@croquet/croquet@1.0.5"></script> -->
+        <script src="./croquet.min.js"></script>
         <script type="module">
             import emoji_regex from "https://cdn.jsdelivr.net/npm/emoji-regex/index.mjs";
             window.EMOJI_REGEX = emoji_regex();
@@ -334,7 +335,6 @@ class Blast extends SpaceObject {
 }
 Blast.register("Blast");
 
-
 /////////// Code below is executed outside of synced VM ///////////
 
 
@@ -440,6 +440,31 @@ class Display extends Croquet.View {
         this.smoothing = new WeakMap(); // position cache for interpolated rendering
 
         this.context = canvas.getContext("2d");
+
+        this.lobbyInterval = setInterval(() => this.inLobby(), 1000);
+        this.inLobby();
+    }
+
+    detach() {
+        clearInterval(this.lobbyInterval);
+    }
+
+    inLobby() {
+        const users = [];
+        for (const ship of this.model.ships.values()) {
+            let user = ship.initials || "user";
+
+            const { loc } = CROQUETVM.views[ship.viewId];
+            if (loc.country) {
+                let location = loc.country;
+                if (loc.region) location = loc.region + ", " + location;
+                if (loc.city) location = loc.city.name + " (" + location + ")";
+                user += " from " + location;
+            }
+            users.push(user);
+        }
+        window.parent.postMessage({type: "croquet-lobby", name: this.session.name, users}, "*");
+        console.log("sending croquet-lobby", this.session.name, users);
     }
 
     // update is called once per render frame
@@ -628,7 +653,8 @@ Croquet.Session.join({
     apiKey: '1_i65fcn11n7lhrb5n890hs3dhj11hfzfej57pvlrx', // get your own from croquet.io/keys
     appId: 'io.croquet.multiblaster',
     name: Croquet.App.autoSession(),
-    password: Croquet.App.autoPassword(),
+    password: "none",
+    location: true,
     model: Game,
     view: Display,
 });
