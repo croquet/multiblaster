@@ -109,23 +109,23 @@ class Lobby extends Croquet.Model {
             sessions: new Set(),    // sessions this view is in
             timeouts: new Map(),    // session -> future message
         });
-        // console.log("view joined", viewId, [...this.views.keys()]);
+        // console.log("lobby", this.now(), "view joined", viewId, [...this.views.keys()]);
     }
 
     viewExited(viewId) {
-        // console.log("view exiting", viewId);
+        // console.log("lobby", this.now(), "view exiting", viewId);
         let view = this.views.get(viewId);
-        // console.log("canceling timeouts", viewId, [...view.timeouts.keys()].map(session => session.name));
+        // console.log("lobby", this.now(), "canceling timeouts", viewId, [...view.timeouts.keys()].map(session => session.name));
         for (let [session, timeout] of view.timeouts) {
             const result = this.cancelFuture(timeout);
-            // console.log("cancel timeout", view.viewId, timeout, result);
+            // console.log("lobby", this.now(), "cancel timeout", view.viewId, timeout, result);
         }
-        // console.log("leaving", [...view.sessions].map(session => session.name));
+        // console.log("lobby", this.now(), "leaving", [...view.sessions].map(session => session.name));
         for (let session of view.sessions) {
             this.leftAppSession({ session, view });
         }
         this.views.delete(viewId);
-        // console.log("view exited", viewId, [...this.views.keys()]);
+        // console.log("lobby", this.now(), "view exited", viewId, [...this.views.keys()]);
     }
 
     inAppSession({ viewId, name, now, users }) {
@@ -145,14 +145,17 @@ class Lobby extends Croquet.Model {
         if (timeout) this.cancelFuture(timeout);
         timeout = this.future(SESSION_TIMEOUT * 1000).leftAppSession({ session, view });
         view.timeouts.set(session, timeout);
-        // console.log("in app session", session.name, [...session.viewIds]);
+        // console.log("lobby", this.now(), "in app session", session.name, users, [...session.viewIds]);
     }
 
     leftAppSession({ session, view }) {
         session.viewIds.delete(view.viewId);
         view.sessions.delete(session);
+        if (session.viewIds.size === 0) {
+            this.sessions.users = "";
+        }
         this.publish(this.sessionId, "session-changed", session.name);
-        // console.log("left app session", session.name, view.viewId, [...session.viewIds]);
+        // console.log("lobby", this.now(), "left app session", session.name, view.viewId, [...session.viewIds]);
     }
 }
 Lobby.register("Lobby");
@@ -165,10 +168,9 @@ class LobbyView extends Croquet.View {
         this.subscribe(this.sessionId, "session-changed", this.showSessions);
         this.interval = setInterval(() => this.showSessions(), 1000);
         window.onmessage = e => {
-            // this.joinAppSession(name))
             if (e.data && e.data.type === "croquet-lobby") {
                 const { name, users } = e.data;
-                console.log("join app session", name, users);
+                // console.log("lobby", "in app session", name, users);
                 this.publish(this.sessionId, "in-app-session", { viewId: this.viewId, name, now: Date.now(), users });
             }
         }
@@ -181,9 +183,8 @@ class LobbyView extends Croquet.View {
         }
         // open app in iframe
         let iframe = document.getElementById("app");
-        iframe.src = Croquet.Constants.AppUrl + `?q=${encodeURIComponent(name)}`;
+        iframe.src = Croquet.Constants.AppUrl + `?session=${encodeURIComponent(name)}`;
         iframe.classList.add("current");
-        // this.publish(this.sessionId, "in-app-session", { viewId: this.viewId, name, now: Date.now() });
     }
 
     showSessions() {
@@ -198,20 +199,8 @@ class LobbyView extends Croquet.View {
             if (session.name === "New Session") {
                 item.style.fontWeight = "bold";
             } else {
-                if (session.viewIds.size > 0) {
-                    item.textContent += `: ${session.viewIds.size} player${session.viewIds.size === 1 ? "" : "s"}`;
-                    const locations = new Set();
-                    for (const viewId of session.viewIds) {
-                        const { loc } = CROQUETVM.views[viewId];
-                        if (!loc.country) continue;
-                        let location = loc.country;
-                        if (loc.region) location = loc.region + ", " + location;
-                        if (loc.city) location = loc.city.name + " (" + location + ")";
-                        locations.add(location);
-                    }
-                    if (locations.size > 0) {
-                        item.textContent += ` from ${[...locations].join(", ")}`;
-                    }
+                if (session.users) {
+                    item.textContent += `: ${session.users}`;
                     item.textContent += ` [${Math.ceil((Date.now() - session.since) / 1000)}s,`;
                     item.textContent += ` timeout in ${(SESSION_TIMEOUT - Math.ceil((this.extrapolatedNow() - session.lastActive) / 1000))}s]`;
                 }

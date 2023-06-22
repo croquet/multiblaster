@@ -74,6 +74,7 @@
 class Game extends Croquet.Model {
     init(_, persisted) {
         this.highscores = persisted?.highscores ?? {};
+        LobbyRelay.create();
         this.ships = new Map();
         this.asteroids = new Set();
         this.blasts = new Set();
@@ -335,6 +336,73 @@ class Blast extends SpaceObject {
 }
 Blast.register("Blast");
 
+class Elected extends Croquet.Model {
+    init() {
+        super.init();
+        this.viewIds = new Set();
+        this.electedViewId = "";
+        this.subscribe(this.sessionId, "view-join", this.viewJoined);
+        this.subscribe(this.sessionId, "view-exit", this.viewExited);
+    }
+
+    viewJoined(viewId) {
+        this.viewIds.add(viewId);
+        this.viewsChanged();
+    }
+
+    viewExited(viewId) {
+        this.viewIds.delete(viewId);
+        this.viewsChanged();
+    }
+
+    viewsChanged() {
+        if (!this.viewIds.has(this.electedViewId)) {
+            this.electedViewId = this.viewIds.values().next().value;
+            this.viewElected(this.electedViewId);
+            console.log(this.now(), "elected", this.electedViewId);
+        }
+    }
+
+    viewElected(viewId) {
+        this.publish(this.sessionId, "elected-view", viewId);
+    }
+}
+Elected.register("Elected");
+
+class LobbyRelay extends Elected {
+    init() {
+        super.init();
+        this.beWellKnownAs("lobbyRelay");
+        this.changeId = 0;
+        this.toRelay = null;
+        this.subscribe(this.id, "relay-done", this.relayDone);
+    }
+
+    viewsChanged() {
+        super.viewsChanged();
+        if (this.viewIds.size === 0) {
+            this.toRelay = null;
+        } else {
+            this.toRelay = { changeId: ++this.changeId, views: [...this.viewIds] };
+            this.publish(this.id, "relay-views");
+        }
+        console.log(this.now(), "to relay", this.toRelay);
+    }
+
+    viewElected(viewId) {
+        this.publish(this.id, "relay-changed", viewId);
+    }
+
+    relayDone(changeId) {
+        console.log(this.now(), "relay done", changeId);
+        if (this.toRelay && this.toRelay.changeId === changeId) {
+            this.toRelay = null;
+            console.log(this.now(), "to relay", this.toRelay);
+        }
+    }
+}
+LobbyRelay.register("LobbyRelay");
+
 /////////// Code below is executed outside of synced VM ///////////
 
 
@@ -441,30 +509,13 @@ class Display extends Croquet.View {
 
         this.context = canvas.getContext("2d");
 
-        this.lobbyInterval = setInterval(() => this.inLobby(), 1000);
-        this.inLobby();
+        this.lobbyRelay = new LobbyRelayView(this.wellKnownModel("lobbyRelay"));
     }
 
     detach() {
-        clearInterval(this.lobbyInterval);
-    }
-
-    inLobby() {
-        const users = [];
-        for (const ship of this.model.ships.values()) {
-            let user = ship.initials || "user";
-
-            const { loc } = CROQUETVM.views[ship.viewId];
-            if (loc.country) {
-                let location = loc.country;
-                if (loc.region) location = loc.region + ", " + location;
-                if (loc.city) location = loc.city.name + " (" + location + ")";
-                user += " from " + location;
-            }
-            users.push(user);
-        }
-        window.parent.postMessage({type: "croquet-lobby", name: this.session.name, users}, "*");
-        console.log("sending croquet-lobby", this.session.name, users);
+        this.lobbyRelay.detach();
+        this.lobbyRelay = null;
+        super.detach();
     }
 
     // update is called once per render frame
@@ -647,12 +698,82 @@ class Display extends Croquet.View {
     }
 }
 
+class LobbyRelayView extends Croquet.View {
+    constructor(model) {
+        super(model);
+        this.model = model;
+        window.addEventListener("message", this);
+        this.subscribe(model.id, "relay-changed", this.relayChanged);
+        console.log("relay", this.viewId, "created");
+        this.relayChanged(this.model.electedViewId);
+    }
+
+    relayChanged(viewId) {
+        console.log("relay", this.viewId, "relay changed to", viewId, this.viewId === viewId ? "(me)" : "(not me)");
+        clearInterval(this.lobbyInterval);
+        if (viewId === this.viewId) {
+            this.reportToLobby();
+            this.lobbyInterval = setInterval(() => this.reportToLobby(), 1000);
+        }
+    }
+
+    detach() {
+        clearInterval(this.lobbyInterval);
+        window.removeEventListener("message", this);
+        super.detach();
+        console.log("relay", this.viewId, "detached");
+    }
+
+    reportToLobby() {
+        let users = `${this.model.viewIds.size} player${this.model.viewIds.size === 1 ? "" : "s"}`;
+        const locations = new Map();
+        let unknown = false;
+        for (const viewId of this.model.viewIds) {
+            const loc = CROQUETVM.views[viewId]?.loc;
+            if (loc?.country) {
+                let location = loc.country;
+                if (loc.region) location = loc.region + ", " + location;
+                if (loc.city) location = loc.city.name + " (" + location + ")";
+                locations.set(location, (locations.get(location) || 0) + 1);
+            } else {
+                unknown = true;
+            }
+        }
+        if (locations.size > 0) {
+            let sorted = [...locations].sort((a, b) => b[1] - a[1]);
+            if (sorted.length > 3) {
+                sorted = sorted.slice(0, 3);
+                unknown = true;
+            }
+            users += ` from ${sorted.map(([location]) => location).join(", ")}`;
+            if (unknown) users += " and elsewhere";
+        }
+
+        window.parent.postMessage({type: "croquet-lobby", name: this.session.name, users}, "*");
+        // console.log("relay", this.viewId, "sending croquet-lobby", this.session.name, users);
+    }
+
+    handleEvent(event) {
+        console.log("relay", this.viewId, "got", event);
+    }
+}
+
+let url = new URL(window.location.href);
+let sessionName = url.searchParams.get("session");
+let inIframe = window.parent !== window;
+
+url.pathname = url.pathname.replace(/[^/]*$/, "lobby.html");
+
+// redirect to lobby if not in iframe or session
+if (!inIframe || !sessionName) window.location.href = url.href;
+
+Croquet.App.sessionURL = url.href;
 Croquet.App.makeWidgetDock(); // shows QR code
 
 Croquet.Session.join({
     apiKey: '1_i65fcn11n7lhrb5n890hs3dhj11hfzfej57pvlrx', // get your own from croquet.io/keys
     appId: 'io.croquet.multiblaster',
-    name: Croquet.App.autoSession(),
+    name: sessionName,
     password: "none",
     location: true,
     model: Game,
