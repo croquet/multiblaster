@@ -51,8 +51,8 @@
                 display: none;
             }
         </style>
-        <!-- <script src="https://cdn.jsdelivr.net/npm/@croquet/croquet@1.1.0-27"></script> -->
-        <script src="./croquet.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/@croquet/croquet@1.1.0-30"></script>
+        <!-- <script src="./croquet.min.js"></script> -->
     </head>
     <body class="in-lobby">
         <div id="lobby">
@@ -71,10 +71,17 @@
 // [ ] unlisted sessions (join directly by name)
 
 const BaseUrl = window.location.href.replace(/[^/?#]+([?#].*)?$/, "");
-Croquet.Constants.AppUrl = BaseUrl + "index.html";
+Croquet.Constants.AppUrl = BaseUrl + "game.html";
 
-const appname = BaseUrl.match(/([^/]+)\/?$/, "$1");
-if (appname) document.querySelector("h1").textContent = appname[1].replace(/^./, c => c.toUpperCase());
+let appname = BaseUrl.match(/([^/]+)\/?$/, "$1");
+if (appname) {
+    appname = appname[1].replace(/^./, c => c.toUpperCase());
+    document.querySelector("h1").textContent = appname;
+    document.title = appname + " Lobby";
+}
+
+let appSessionName = window.location.hash.slice(1);
+try { appSessionName = decodeURIComponent(appSessionName); } catch (e) { }
 
 const SESSION_TIMEOUT = 5; // seconds
 
@@ -95,6 +102,7 @@ class Lobby extends Croquet.Model {
                 name,
                 users: "",
                 views: new Set(),
+                relay: null,
                 since,
                 lastActive: 0,
                 timeout: null,
@@ -113,9 +121,24 @@ class Lobby extends Croquet.Model {
     }
 
     viewExited(viewId) {
-        console.log("lobby", this.now(), "view exiting", viewId);
         let view = this.views.get(viewId);
         this.views.delete(viewId);
+        let session = view.session;
+        if (session) {
+            session.views.delete(view);
+            const users = parseInt(session.users);
+            if (users === 1) {
+                // last user in session, expire it right away
+                this.sessionExpired(session);
+            } else {
+                if (session.relay === view) {
+                    session.relay = null;
+                    // renew the session timeout, hope another relay appears
+                    this.sessionActive(session);
+                }
+            }
+            // if there were more than one user, the session will expire on its own
+        }
         console.log("lobby", this.now(), "view exited", viewId,
             [...this.views.values()].map(v => `${v.viewId} ${v.session ? v.session.name : "in lobby"}`));
     }
@@ -133,10 +156,20 @@ class Lobby extends Croquet.Model {
             session.views.add(view);
             view.session = session;
         }
+        if (session.relay !== view) {
+            session.relay = view;
+            this.publish(this.sessionId, "relay-changed", { name, viewId });
+            console.log("lobby", this.now(), "relay changed", name, viewId);
+        }
+        this.sessionActive(session);
         this.publish(this.sessionId, "session-changed", name);
+        // console.log("lobby", this.now(), "in app session", session.name, users, [...session.views].map(v => v.viewId));
+    }
+
+
+    sessionActive(session) {
         if (session.timeout) this.cancelFuture(session.timeout);
         session.timeout = this.future(SESSION_TIMEOUT * 1000).sessionExpired(session);
-        console.log("lobby", this.now(), "in app session", session.name, users, [...session.views].map(v => v.viewId));
     }
 
     sessionExpired(session) {
@@ -155,7 +188,6 @@ class LobbyView extends Croquet.View {
     constructor(model) {
         super(model);
         this.model = model;
-        this.inLobby = true;
         this.subscribe(this.sessionId, "relay-changed", this.relayChanged);
         this.subscribe(this.sessionId, "session-changed", this.showSessions);
         this.interval = setInterval(() => this.showSessions(), 1000);
@@ -165,28 +197,24 @@ class LobbyView extends Croquet.View {
                 const { name, users } = e.data;
                 // console.log("lobby", "in app session", name, users);
                 this.publish(this.sessionId, "in-app-session", { viewId: this.viewId, name, now: Date.now(), users });
+                if (name !== appSessionName) {
+                    console.error("lobby", "app session is different", name, this.viewId);
+                }
             }
         }
-        const sessionName = new URLSearchParams(window.location.search).get("name");
-        if (sessionName) this.enterAppSession(sessionName);
     }
 
-    enterAppSession(name) {
-        if (name === "New Session") {
-            name = prompt("Session Name");
-            if (!name) return;
+    async relayChanged({ name, viewId }) {
+        console.log("lobby", "relay changed", name, viewId);
+        if (name === appSessionName && viewId !== this.viewId) {
+            console.log("lobby", "leaving lobby session", name, this.viewId);
+            await this.session.leave();
+            lobbySession = null;
         }
-        // open app in iframe
-        let iframe = document.getElementById("app");
-        iframe.src = Croquet.Constants.AppUrl + `?session=${encodeURIComponent(name)}`;
-        // hide lobby, show app
-        this.inLobby = false;
-        document.body.classList.toggle("in-lobby", this.inLobby);
-        clearInterval(this.interval);
     }
 
     showSessions() {
-        if (!this.inLobby) return;
+        if (appSessionName) return;
         // sessions
         let sessions = Array.from(this.model.sessions.values());
         sessions.sort((a, b) => b.since - a.since);
@@ -203,7 +231,7 @@ class LobbyView extends Croquet.View {
                 item.textContent += ` [${Math.ceil((Date.now() - session.since) / 1000)}s,`;
                 item.textContent += ` timeout in ${(SESSION_TIMEOUT - Math.ceil((this.extrapolatedNow() - session.lastActive) / 1000))}s]`;
             }
-            item.addEventListener("click", () => this.enterAppSession(session.name));
+            item.addEventListener("click", () => this.sessionClicked(session.name));
             list.appendChild(item);
         }
         // lobby users
@@ -241,24 +269,84 @@ class LobbyView extends Croquet.View {
         document.getElementById("users").innerHTML = users + '<br><br><em>Click a session to join.</em>';
     }
 
+    sessionClicked(name) {
+        name = enterApp(name);
+        if (!name) return;
+        clearInterval(this.interval);
+        // possibly leave lobby session
+        let session = this.model.sessions.get(name);
+        if (session) {
+            let relay = session.relay;
+            if (relay.viewId !== this.viewId) {
+                this.relayChanged({ name, viewId: relay.viewId });
+            }
+        }
+    }
+
     detach() {
         clearInterval(this.interval);
-        window.onmessage = null;
+        // in case we become the relay again
+        window.onmessage = enterLobbyOnMessage;
         super.detach();
     }
 }
 
-Croquet.Session.join({
-    apiKey: '1_i65fcn11n7lhrb5n890hs3dhj11hfzfej57pvlrx', // get your own from croquet.io/keys
-    appId: "io.croquet.lobby",
-    name: "lobby",
-    password: "lobby",
-    location: true,
-    model: Lobby,
-    view: LobbyView,
-    autoSleep: false, // fixme – only need to force while game is running and we're the relay?
-    tps: 1,
-});
+//////////////////////////////
+
+function enterApp(name) {
+    if (name === "New Session") {
+        name = prompt("Session Name");
+        if (!name) return "";
+    }
+    // open app in iframe
+    appSessionName = name;
+    let iframe = document.getElementById("app");
+    iframe.src = Croquet.Constants.AppUrl + `?session=${encodeURIComponent(name)}`;
+    // hide lobby, show app
+    document.body.classList.toggle("in-lobby", false);
+    // update session URL and QR code and title
+    window.location.hash = "#" + encodeURIComponent(name);
+    Croquet.App.sessionURL = window.location.href;
+    document.title = appname ? `${appname} - ${name}` : name;
+    return name;
+}
+
+function enterLobbyOnMessage(e) {
+    if (e.data && e.data.type === "croquet-lobby") {
+        enterLobby();
+    }
+}
+
+let lobbySession = null;
+
+async function enterLobby() {
+    if (lobbySession) {
+        console.warn("lobby", "already in lobby session");
+        return;
+    }
+    lobbySession = Croquet.Session.join({
+        apiKey: '1_i65fcn11n7lhrb5n890hs3dhj11hfzfej57pvlrx', // get your own from croquet.io/keys
+        appId: "io.croquet.lobby",
+        name: "lobby",
+        password: "lobby",
+        location: true,
+        model: Lobby,
+        view: LobbyView,
+        autoSleep: false, // fixme – only need to force while game is running and we're the relay?
+        tps: 1,
+    });
+    await lobbySession;
+}
+
+Croquet.App.makeWidgetDock(); // shows QR code
+
+if (appSessionName) {
+    enterApp(appSessionName);
+    // in case we become the relay
+    window.onmessage = enterLobbyOnMessage;
+} else {
+    enterLobby();
+}
 
         </script>
     </body>
