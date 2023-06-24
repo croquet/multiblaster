@@ -22,7 +22,7 @@
                 display: block;
             }
             #sessions {
-                list-style: none;
+                list-style: decimal inside;
                 margin: 0;
                 padding: 0;
             }
@@ -36,7 +36,7 @@
                 background: #ddd;
             }
             p {
-                padding: 1em;
+                padding: 0 1em;
             }
             #app {
                 position: fixed;
@@ -220,12 +220,12 @@ class LobbyView extends Croquet.View {
         sessions.sort((a, b) => b.since - a.since);
         let list = document.getElementById("sessions");
         list.innerHTML = "";
-        sessions.unshift({ name: "New Session" });
+        sessions.push({ name: "New Session" });
         for (let session of sessions) {
             let item = document.createElement("li");
             item.textContent = session.name;
             if (session.name === "New Session") {
-                item.style.fontWeight = "bold";
+                item.style.fontStyle = "italic";
             } else {
                 item.textContent += `: ${session.users || "starting ..."}`;
                 item.textContent += ` [${Math.ceil((Date.now() - session.since) / 1000)}s,`;
@@ -285,8 +285,8 @@ class LobbyView extends Croquet.View {
 
     detach() {
         clearInterval(this.interval);
-        // in case we become the relay again
-        window.onmessage = enterLobbyOnMessage;
+        window.onmessage = enterLobbyOnMessage; // in case we become the relay
+        window.onhashchange = toggleLobbyOnHashChange; // e.g. back button
         super.detach();
     }
 }
@@ -311,8 +311,32 @@ function enterApp(name) {
     return name;
 }
 
+function exitApp() {
+    appSessionName = "";
+    // close app in iframe
+    let iframe = document.getElementById("app");
+    iframe.src = "";
+    // hide app, show lobby
+    document.body.classList.toggle("in-lobby", true);
+    // update session URL and QR code and title
+    window.location.hash = "";
+    Croquet.App.sessionURL = window.location.href;
+    document.title = appname;
+}
+
 function enterLobbyOnMessage(e) {
     if (e.data && e.data.type === "croquet-lobby") {
+        enterLobby();
+    }
+}
+
+function toggleLobbyOnHashChange() {
+    const wasInLobby = !appSessionName;
+    appSessionName = window.location.hash.slice(1);
+    if (appSessionName) {
+        enterApp(decodeURIComponent(appSessionName));
+    } else {
+        exitApp();
         enterLobby();
     }
 }
@@ -342,8 +366,8 @@ Croquet.App.makeWidgetDock(); // shows QR code
 
 if (appSessionName) {
     enterApp(appSessionName);
-    // in case we become the relay
-    window.onmessage = enterLobbyOnMessage;
+    window.onmessage = enterLobbyOnMessage; // in case we become the relay
+    window.onhashchange = toggleLobbyOnHashChange; // e.g. back button
 } else {
     enterLobby();
 }
