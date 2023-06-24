@@ -15,45 +15,51 @@
                 margin: 0;
                 padding: 1em;
             }
-            ul {
+            #lobby {
+                display: none;
+            }
+            .in-lobby > #lobby {
+                display: block;
+            }
+            #sessions {
                 list-style: none;
                 margin: 0;
                 padding: 0;
             }
-            li {
+            #sessions > li {
                 background: #eee;
                 border-bottom: 1px solid #ccc;
                 cursor: pointer;
                 padding: 1em;
             }
-            li:hover {
+            #sessions > li:hover {
                 background: #ddd;
             }
-            li.current {
-                background: #afa;
+            p {
+                padding: 1em;
             }
-            li.current:hover {
-                background: #cfc;
-            }
-            iframe {
+            #app {
                 position: fixed;
                 top: 0;
                 left: 0;
                 border: none;
                 height: 100vh;
                 width: 100vw;
-                display: none;
-            }
-            iframe.current {
                 display: block;
+            }
+            .in-lobby > #app {
+                display: none;
             }
         </style>
         <!-- <script src="https://cdn.jsdelivr.net/npm/@croquet/croquet@1.1.0-27"></script> -->
         <script src="./croquet.min.js"></script>
     </head>
-    <body>
-        <h1>Croquet Lobby</h1>
-        <ul id="sessions"></ul>
+    <body class="in-lobby">
+        <div id="lobby">
+            <h1>Croquet Lobby</h1>
+            <ul id="sessions"></ul>
+            <p id="users"></p>
+        </div>
         <iframe id="app" src="about:blank"></iframe>
         <script>
 
@@ -74,88 +80,73 @@ const SESSION_TIMEOUT = 5; // seconds
 
 class Lobby extends Croquet.Model {
 
-    init(_, persisted) {
+    init() {
         this.sessions = new Map();
         this.views = new Map();
         this.subscribe(this.sessionId, "view-join", this.viewJoined);
         this.subscribe(this.sessionId, "view-exit", this.viewExited);
         this.subscribe(this.sessionId, "in-app-session", this.inAppSession);
-        this.subscribe(this.sessionId, "left-app-session", this.leftAppSession);
-        if (persisted) for (let session of persisted.sessions) {
-            this.ensureSession(session.name);
-        }
     }
 
-    ensureSession(name, persist=true) {
+    ensureSession(name, since) {
         let session = this.sessions.get(name);
         if (!session) {
             session = {
                 name,
-                viewIds: new Set(),
-                since: 0,
+                users: "",
+                views: new Set(),
+                since,
                 lastActive: 0,
+                timeout: null,
             };
             this.sessions.set(name, session);
         }
-        this.persistSession({
-            sessions: [...this.sessions.values()].map(s => ({ name: s.name })),
-        });
         return session;
     }
 
     viewJoined(viewId) {
         this.views.set(viewId, {
             viewId,
-            sessions: new Set(),    // sessions this view is in
-            timeouts: new Map(),    // session -> future message
+            session: null,
         });
-        // console.log("lobby", this.now(), "view joined", viewId, [...this.views.keys()]);
+        console.log("lobby", this.now(), "view joined", viewId, [...this.views.keys()]);
     }
 
     viewExited(viewId) {
-        // console.log("lobby", this.now(), "view exiting", viewId);
+        console.log("lobby", this.now(), "view exiting", viewId);
         let view = this.views.get(viewId);
-        // console.log("lobby", this.now(), "canceling timeouts", viewId, [...view.timeouts.keys()].map(session => session.name));
-        for (let [session, timeout] of view.timeouts) {
-            const result = this.cancelFuture(timeout);
-            // console.log("lobby", this.now(), "cancel timeout", view.viewId, timeout, result);
-        }
-        // console.log("lobby", this.now(), "leaving", [...view.sessions].map(session => session.name));
-        for (let session of view.sessions) {
-            this.leftAppSession({ session, view });
-        }
         this.views.delete(viewId);
-        // console.log("lobby", this.now(), "view exited", viewId, [...this.views.keys()]);
+        console.log("lobby", this.now(), "view exited", viewId,
+            [...this.views.values()].map(v => `${v.viewId} ${v.session ? v.session.name : "in lobby"}`));
     }
 
     inAppSession({ viewId, name, now, users }) {
         let view = this.views.get(viewId);
-        let session = this.ensureSession(name);
-        if (session.viewIds.size === 0) {
-            session.since = now;
+        if (view.session && view.session.name !== name) {
+            console.warn("lobby", this.now(), "view changed session", viewId, view.session.name, name);
+            view.session.views.delete(view);
         }
+        let session = this.ensureSession(name, now);
         session.lastActive = this.now();
         session.users = users;
-        if (!session.viewIds.has(viewId)) {
-            session.viewIds.add(viewId);
-            view.sessions.add(session);
+        if (!session.views.has(view)) {
+            session.views.add(view);
+            view.session = session;
         }
         this.publish(this.sessionId, "session-changed", name);
-        let timeout = view.timeouts.get(session);
-        if (timeout) this.cancelFuture(timeout);
-        timeout = this.future(SESSION_TIMEOUT * 1000).leftAppSession({ session, view });
-        view.timeouts.set(session, timeout);
-        // console.log("lobby", this.now(), "in app session", session.name, users, [...session.viewIds]);
+        if (session.timeout) this.cancelFuture(session.timeout);
+        session.timeout = this.future(SESSION_TIMEOUT * 1000).sessionExpired(session);
+        console.log("lobby", this.now(), "in app session", session.name, users, [...session.views].map(v => v.viewId));
     }
 
-    leftAppSession({ session, view }) {
-        session.viewIds.delete(view.viewId);
-        view.sessions.delete(session);
-        if (session.viewIds.size === 0) {
-            this.sessions.users = "";
+    sessionExpired(session) {
+        for (const view of session.views) {
+            view.session = null;
         }
+        if (session.timeout) this.cancelFuture(session.timeout);
+        this.sessions.delete(session.name);
         this.publish(this.sessionId, "session-changed", session.name);
-        // console.log("lobby", this.now(), "left app session", session.name, view.viewId, [...session.viewIds]);
+        console.log("lobby", this.now(), "session expired", session.name);
     }
 }
 Lobby.register("Lobby");
@@ -164,9 +155,11 @@ class LobbyView extends Croquet.View {
     constructor(model) {
         super(model);
         this.model = model;
-        this.showSessions();
+        this.inLobby = true;
+        this.subscribe(this.sessionId, "relay-changed", this.relayChanged);
         this.subscribe(this.sessionId, "session-changed", this.showSessions);
         this.interval = setInterval(() => this.showSessions(), 1000);
+        this.showSessions();
         window.onmessage = e => {
             if (e.data && e.data.type === "croquet-lobby") {
                 const { name, users } = e.data;
@@ -174,9 +167,11 @@ class LobbyView extends Croquet.View {
                 this.publish(this.sessionId, "in-app-session", { viewId: this.viewId, name, now: Date.now(), users });
             }
         }
+        const sessionName = new URLSearchParams(window.location.search).get("name");
+        if (sessionName) this.enterAppSession(sessionName);
     }
 
-    joinAppSession(name) {
+    enterAppSession(name) {
         if (name === "New Session") {
             name = prompt("Session Name");
             if (!name) return;
@@ -184,10 +179,15 @@ class LobbyView extends Croquet.View {
         // open app in iframe
         let iframe = document.getElementById("app");
         iframe.src = Croquet.Constants.AppUrl + `?session=${encodeURIComponent(name)}`;
-        iframe.classList.add("current");
+        // hide lobby, show app
+        this.inLobby = false;
+        document.body.classList.toggle("in-lobby", this.inLobby);
+        clearInterval(this.interval);
     }
 
     showSessions() {
+        if (!this.inLobby) return;
+        // sessions
         let sessions = Array.from(this.model.sessions.values());
         sessions.sort((a, b) => b.since - a.since);
         let list = document.getElementById("sessions");
@@ -199,18 +199,46 @@ class LobbyView extends Croquet.View {
             if (session.name === "New Session") {
                 item.style.fontWeight = "bold";
             } else {
-                if (session.users) {
-                    item.textContent += `: ${session.users}`;
-                    item.textContent += ` [${Math.ceil((Date.now() - session.since) / 1000)}s,`;
-                    item.textContent += ` timeout in ${(SESSION_TIMEOUT - Math.ceil((this.extrapolatedNow() - session.lastActive) / 1000))}s]`;
-                }
-                if (session.viewIds.has(this.viewId)) {
-                    item.classList.add("current");
-                }
+                item.textContent += `: ${session.users || "starting ..."}`;
+                item.textContent += ` [${Math.ceil((Date.now() - session.since) / 1000)}s,`;
+                item.textContent += ` timeout in ${(SESSION_TIMEOUT - Math.ceil((this.extrapolatedNow() - session.lastActive) / 1000))}s]`;
             }
-            item.addEventListener("click", () => this.joinAppSession(session.name));
+            item.addEventListener("click", () => this.enterAppSession(session.name));
             list.appendChild(item);
         }
+        // lobby users
+        const locations = new Map();
+        let count = 0;
+        let unknown = false;
+        for (const view of this.model.views.values()) {
+            const viewId = view.viewId;
+            if (viewId === this.viewId) continue; // don't count self
+            if (view.session) continue; // don't count in-app users
+            count++;
+            const loc = CROQUETVM.views[viewId]?.loc;
+            if (loc?.country) {
+                let location = loc.country;
+                if (loc.region) location = loc.region + ", " + location;
+                if (loc.city) location = loc.city.name + " (" + location + ")";
+                locations.set(location, (locations.get(location) || 0) + 1);
+            } else {
+                unknown = true;
+            }
+        }
+        let users = "Waiting: You";
+        if (count) {
+            users += ` and ${count} user${count === 1 ? "" : "s"}`;
+            if (locations.size > 0) {
+                let sorted = [...locations].sort((a, b) => b[1] - a[1]);
+                if (sorted.length > 3) {
+                    sorted = sorted.slice(0, 3);
+                    unknown = true;
+                }
+                users += ` from ${sorted.map(([location]) => location).join(", ")}`;
+                if (unknown) users += " and elsewhere";
+            }
+        }
+        document.getElementById("users").innerHTML = users + '<br><br><em>Click a session to join.</em>';
     }
 
     detach() {
