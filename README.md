@@ -5,7 +5,7 @@ All clients are kept in sync automatically by [Croquet](https://croquet.io/)'s s
 
 # Play It!
 
-https://croquet.io/multiblaster
+[croquet.io/multiblaster](https://croquet.io/multiblaster)
 
 * open this URL to create a new session
 * use arrow keys to move, and space bar to shoot
@@ -21,6 +21,11 @@ https://croquet.io/multiblaster
 * open the file in a web browser to play
 * copy that single file to any webserver to play with friends
 
+# Understand it!
+
+* Step-by-step [Multiblaster Tutorial](https://croquet.github.io/multiblaster-tutorial/)
+
 # Learn more
 
-https://croquet.io/docs/croquet/
+* [Croquet Documentation](https://croquet.io/docs/croquet/)
+* [Croquet Discord](https://croquet.io/discord)
