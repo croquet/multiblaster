@@ -55,7 +55,7 @@
                 opacity: 100%;
             }
         </style>
-        <script src="https://cdn.jsdelivr.net/npm/@croquet/croquet@1.0.5"></script>
+        <script src="https://cdn.jsdelivr.net/npm/@croquet/croquet@1.1.0"></script>
         <script type="module">
             import emoji_regex from "https://cdn.jsdelivr.net/npm/emoji-regex/index.mjs";
             window.EMOJI_REGEX = emoji_regex();
@@ -365,9 +365,9 @@ class Display extends Croquet.View {
             }
         };
 
-        let x = 0, y = 0, id = 0, right = false, left = false, forward = false;
+        let x = 0, y = 0, id = null, right = false, left = false, forward = false;
         document.onpointerdown = (e) => {
-            if (!id) {
+            if (id === null) {
                 id = e.pointerId;
                 x = e.clientX;
                 y = e.clientY;
@@ -401,7 +401,7 @@ class Display extends Croquet.View {
         document.onpointerup = (e) => {
             e.preventDefault();
             if (id === e.pointerId) {
-                id = 0;
+                id = null;
                 if (!right && !left && !forward) {
                     this.publish(this.viewId, "fire-blaster");
                 }
@@ -461,7 +461,7 @@ class Display extends Croquet.View {
             if (!label) {
                 label = `Player ${labels.size + 1}`;
                 highscore.push([label, ship.score]);
-            } else {
+            } else if (window.EMOJI_REGEX) {
                 const emoji = label.match(EMOJI_REGEX);
                 if (emoji?.length) emojis.set(ship, emoji[emoji.length >> 1]);
             }

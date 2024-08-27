@@ -1,4 +1,4 @@
-# Croquet Multiblaster
+# Croquet Multiblaster 🚀
 
 This is an homage to Asteroids, implemented as a single HTML page without any backend code.
 All clients are kept in sync automatically by [Croquet](https://croquet.io/)'s synchronization technology.
